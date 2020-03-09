@@ -265,7 +265,7 @@ NOTE:
 export ANSIBLE_LOG_PATH=~/code/ansible/log/ansible_$(date +%Y%m%d-%H%M%S.%N).log
 ansible-playbook ./satcb/tasks/main.yaml                              \
     --vault-password-file=~/code/ansible/vault/my_vault_password.txt  \
-    --extra-vars='{ "satcb_hostname": "dsatellite6.juliusbaer.com" }'
+    --extra-vars='{ "satcb_hostname": "my-satellite.acme.com" }'
 ```
 
 
@@ -281,7 +281,7 @@ NOTE:
 export ANSIBLE_LOG_PATH=~/code/ansible/log/ansible_$(date +%Y%m%d-%H%M%S.%N).log
 ansible-playbook ./satcb/tasks/main.yaml                              \
     --vault-password-file=~/code/ansible/vault/my_vault_password.txt  \
-    --extra-vars='{ "satcb_hostname": "dsatellite6.juliusbaer.com",   \
+    --extra-vars='{ "satcb_hostname": "my-satellite.acme.com",   \
                     "satcb_promote_ccv_only": true                    \
                     "satcb_promote_ccv_to_env": "average" }'
 ```
@@ -295,7 +295,7 @@ PUBLISH new CV **and** PROMOTE CCV to Lifecycle Environment: *pilot* for Satelli
 export ANSIBLE_LOG_PATH=~/code/ansible/log/ansible_$(date +%Y%m%d-%H%M%S.%N).log
 ansible-playbook ./satcb/tasks/main.yaml                              \
     --vault-password-file=~/code/ansible/vault/my_vault_password.txt  \
-    --extra-vars='{ "satcb_hostname": "dsatellite6.juliusbaer.com",   \
+    --extra-vars='{ "satcb_hostname": "my-satellite.acme.com",   \
                     "satcb_promote_ccv_to_env": "pilot" }'
 ```
 
@@ -311,7 +311,7 @@ PROMOTE CCV to Lifecycle Environment: *average* **excluding** the CCV listed in 
 export ANSIBLE_LOG_PATH=~/code/ansible/log/ansible_$(date +%Y%m%d-%H%M%S.%N).log
 ansible-playbook ./satcb/tasks/main.yaml                              \
     --vault-password-file=~/code/ansible/vault/my_vault_password.txt  \
-    --extra-vars='{ "satcb_hostname": "dsatellite6.juliusbaer.com",   \
+    --extra-vars='{ "satcb_hostname": "my-satellite.acme.com",   \
                     "satcb_promote_ccv_only": true                    \
                     "satcb_promote_ccv_to_env": "average"             \
                     "satcb_exclude_list_filename": "exclude_list-mytest.yaml" }'
@@ -332,7 +332,7 @@ Use a *custom* configuration file:-
 export ANSIBLE_LOG_PATH=~/code/ansible/log/ansible_$(date +%Y%m%d-%H%M%S.%N).log
 ansible-playbook ./satcb/tasks/main.yaml                              \
     --vault-password-file=~/code/ansible/vault/my_vault_password.txt  \
-    --extra-vars='{ "satcb_hostname": "dsatellite6.juliusbaer.com",   \
+    --extra-vars='{ "satcb_hostname": "my-satellite.acme.com",   \
                     "satcb_config_filename": "mytest-conf-file.yaml"  }'
 ```
 
