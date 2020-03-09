@@ -1,0 +1,56 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  _get_content_information.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  25/02/2020
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# An internal sub tasks used in several other task files to extract
+# information about a specific CV or CCV.
+#
+#
+# Used in:-
+#
+#   _publish_content.yaml
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include_tasks: _get_content_information.yaml
+#
+#
+# VARIABLE DEPENDENCIES
+#-----------------------------------------------------------------------------
+#
+#  _content_name.......:  name of the specific CV / CCV to publish
+#
+#  _publish_description:  Standard text each CV/CCV gets to describe the 
+#                         baseline.
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _get_content_information"
+
+
+- name: "{{ _subtask_name_prefix }}  -  Get CV or CCV information for [{{ _content_name }}] id [{{ _content_id }}]"
+  uri:
+    url: "{{ _satcb_url_katello_api }}/content_views/{{ _content_id }}"
+    method: GET
+    user: "{{ satcb_user }}"
+    password: "{{ satcb_password }}"
+    validate_certs: no
+    force_basic_auth: yes
+  register: _content_information
+
+
+- debug:
+    var: _content_information
+##  when: _DEBUG_ME == true

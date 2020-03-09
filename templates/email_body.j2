@@ -1,0 +1,448 @@
+{#
+Name............:   email_body.j2
+
+Created.........:   15-11-2019
+
+Author..........:   Andy Thom (andrew.thom@juliusbaer.com)
+
+Related Playbook:   satellite_content_baseline.yaml 
+
+Description.....:   Creates a HTML Email body for sending a report of the
+                    playbook run.
+
+#}
+
+
+{#
+  Determine if there was a separate Ansible log file
+#}
+{% set _playbook_log = lookup('env', 'ANSIBLE_LOG_PATH') %}
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><meta http-equiv="Content-Type" content="text/html" />
+  <title>Satellite Content Baseline: {{ satcb_hostname }}</title>
+  <meta charset="UTF-8", name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+
+{#
+DEFINE SOME CSS STYLE INFO
+--------------------------
+
+
+#}
+
+
+<style type="text/css">
+align-left   {
+  text-align: left;
+}
+
+align-center {
+  text-align: center;
+}
+
+align-right  {
+  text-align: right;
+}
+
+body {
+  margin:           0px;
+  padding:          0px;
+  font-family:      arial;
+  font-size:        14px;
+}
+
+.report_table {
+  width:            800px;
+  text-align:       left;
+  border:           #ffffff 1px solid;
+  cellpadding:      0px;
+  cellspacing:      0px;
+  background:       #ffffff;
+  font-family:      arial;
+  font-size:        14px;
+}
+
+.report_table td {
+  padding:          7px;
+}
+
+.report_table tr {
+  width:            100%;
+  background:       #ffffff;  
+}
+
+.report_table tr:nth-child(odd) {
+  background:       #ffffcc;
+}
+
+.report_table tr:nth-child(even) {
+  background:       #ffffff;
+}
+
+.report_table tfoot tr td {
+  background:       #ffffff;
+  font-size:        9px;
+}
+
+h1 {
+  font-family:      arial;
+  font-size:        24px;
+  font-style:       normal;
+  font-variant:     normal;
+  font-weight:      bold;
+  line-height:      26.4px;
+}
+h3 {
+  font-family:      arial;
+  font-size:        14px;
+  font-style:       normal;
+  font-variant:     normal;
+  font-weight:      bold;
+  line-height:      15.4px;
+}
+
+p {
+  font-family:      arial;
+  font-size:        14px;
+  font-style:       normal;
+  font-variant:     normal;
+  font-weight:      normal;
+  line-height:      19.99px;
+}
+
+.lifecycle {
+  color:            yellow;
+  background-color: #D4D4D4;
+  font-weight:      bold;
+}
+
+.included_excluded_content {
+  font-family:      arial;
+  font-size:        10px
+  font-style:       normal;
+  font-variant:     normal;
+  font-weight:      normal;
+}
+</style>
+<body style="margin: 0; padding: 0;">
+  <table style="width: 800px;">
+
+
+    {#
+    Display a summary header
+    ------------------------
+
+
+    #}
+    <tr>
+      <td>
+        <table class="report_table" style="align: center;">
+          <tr>
+            <td align="center" style="font-size: 24px; padding: 25px 0 0 0; text-decoration: underline">Satellite Content Baseline Report{% if (satcb_promote_ccv_only|bool == false) %} for: {{ _publish_description }}{% endif %}</td>
+          </tr>
+          <tr>
+            <td align="center" style="font-size: 10px; padding: 25px 0 0 0;">({{ ansible_date_time.date }} @ {{ ansible_date_time.time }} [{{ ansible_date_time.tz }}] )</td>
+          </tr>
+          <tr>
+            <td style="align: left; font-size: 14px; padding: 25px 0 0 0;">
+              On the Satellite please verify the {% if satcb_promote_ccv_only|bool == false %}PUBLISHING AND {% endif %}PROMOTION to lifecycle: <span style="font-weight: bold">{% if satcb_promote_ccv_to_env|length %}{{ satcb_promote_ccv_to_env }}{% else %}LIBRARY{% endif %}</span>
+            </td>
+          </tr>
+          <tr><td><br/></td></tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <table class="report_table">
+          <tr>
+            <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">Satellite Hostname:</td>
+            <td style="width: 70%; align: right; font-weight: bold">{% if (satcb_hostname is defined) and (satcb_hostname|length) %}{{ satcb_hostname }} ({% if (_satellite_ipaddress == 'NXDOMAIN') %}DNS entry not found{% else %}{{ _satellite_ipaddress }}{% endif %}){% else %}SATELLITE HOSTNAME IS NOT DEFINED - Check{% endif %}</td>
+          </tr>
+          <tr>
+            <td style="width: 30%; align: left; -size: 14px; padding: 25px 0 0 0;">Config Filename:</td>
+            <td style="width: 70%; align: right; size: 14px; padding: 25px 0 0 0;">{{ _satcb_config_filename }}</td>
+          </tr> 
+          <tr>
+            <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">Include List Filename:</td>
+            <td style="width: 70%; align: right; font-size: 14px; padding: 25px 0 0 0;">{{ _satcb_include_list_filename }}</td>
+          </tr> 
+          <tr>
+            <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">Exclude List Filename:</td>
+            <td style="width: 70%; align: right; font-size: 14px; padding: 25px 0 0 0;">{{ _satcb_exclude_list_filename }}</td>
+            </td>
+          </tr> 
+          <tfoot>
+            <tr>
+              <td colspan="2">* NOTE: If the satellite hostname is not valid then the 'config' / 'include' & 'exclude' files used will be the default and not those listed here.</td>
+            </tr>
+          </tfoot>
+        </table>
+        <table class="report_table">
+          <tr>
+            <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">Logfile:</td>
+            <td style="width: 70%; align: right; -size: 14px; padding: 25px 0 0 0;">
+                {% if _playbook_log|length %}
+                  {{ _playbook_log }}
+                {% else %}
+                  environment variable: ANSIBLE_LOG_PATH IS *NOT* DEFINED
+                {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">START Date/Time:</td>
+            <td style="width: 70%; align: right; font-size: 14px; padding: 25px 0 0 0;">{{ _playbook_start_time }}</td>
+          </tr>
+          <tr>
+            <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">END Date/Time:</div>
+            <td style="width: 70%; align: right; font-size: 14px; padding: 25px 0 0 0;">{{ _playbook_end_time }}</td>
+          </tr>
+          <tr>
+            <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">RUN BY USER:</td>
+            <td style="width: 70%; align: right; font-size: 14px; padding: 25px 0 0 0;">{{ ansible_user }}</td>
+          </tr>
+          <tr>
+            <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">Remove old CV/CCV versions:</td>
+            <td style="width: 70%; align: right; font-size: 14px; padding: 25px 0 0 0;">{{ satcb_remove_old_cv_ccv }}</td>
+          </tr>
+          {% if satcb_remove_old_cv_ccv == true %}
+          <tr>
+            <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">Old CV/CCV Versions to Keep:</td>
+            <td style="width: 70%; align: right; font-size: 14px; padding: 25px 0 0 0;">{{ satcb_keep_old_content_versions }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td style="width: 30%; align: left; -size: 10px; padding: 25px 0 0 0;">Satellite API User:</td>
+            <td style="width: 70%; align: right; -size: 10px; padding: 25px 0 0 0;">{{ satcb_user }}</td>
+          </tr>
+          {% if (ansible_version|float >= 2.8) %}
+            <tr> 
+              <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">Playbook Name:</td>
+              <td style="width: 70%; align: right; font-size: 14px; padding: 25px 0 0 0;">
+                  {% if (ansible_play_name is defined) %}
+                    {{ ansible_play_name }}
+                  {% else %}
+                    'ansible_play_name' is not defined
+                  {% endif %}
+              </td>
+            </tr> 
+          {% endif %}
+        </table>
+    <tr><td><br/></td></tr>
+
+
+    {#
+    ERROR / WARNING REPORTING
+    -------------------------
+  
+
+    #}
+    {% if _PLAYBOOK_STATUS is defined and _PLAYBOOK_STATUS == "NO ACTION" %}
+      {% set _error_report_background = "#FFA500" %}
+      {% set _error_report_foreground = "#000000" %}
+
+      {% set _PLAYBOOK_ERROR_MSG = _PLAYBOOK_ERROR_MSG | default([]) + ["THERE ARE NO TASKS IN THE TASK LIST TO REPORT."] %}
+    {% elif _PLAYBOOK_STATUS is defined and _PLAYBOOK_STATUS != "SUCCESS" %}
+      {% set _error_report_background = "#FF0000" %}
+      {% set _error_report_foreground = "#FFFFFF" %}
+    {% endif %}
+    {% if _PLAYBOOK_STATUS is defined and _PLAYBOOK_STATUS != "SUCCESS" %}
+    <tr>
+      <td>
+        <table class="report_table">
+          <tr>
+            <td colspan="2" style="color: {{ _error_report_foreground }}; background-color: {{ _error_report_background }} ; font-weight: bold">{{ _PLAYBOOK_STATUS }}</td>
+          </tr>
+            <tr>
+              <ul>
+              {% if (_PLAYBOOK_ERROR_MSG|length) >= 1 %}
+                {% for error_message in _PLAYBOOK_ERROR_MSG %}
+                  <li colspan="2" style="align: left; color: #000000;">{{ error_message }}</li>
+                {% endfor %} 
+              {% else %}
+                  <li colspan="2" style="align: left; color: #000000;">No error message given</li>
+              {% endif %}
+              </ul>
+            </tr>
+        </table>
+      </td>
+    </tr>
+    <tr><td><br/></td></tr>
+    <tr><td><br/></td></tr>
+    {% endif %}
+
+
+
+    {#
+    REPORTING
+    ------------------------
+  
+    Here each individual task is reported using the following task types:-
+
+      "PROMOTE CCV",
+
+      "PUBLISH CCV",
+
+      "PUBLISH CV",
+
+      "REMOVE OLD CCV",
+
+      "REMOVE OLD CV"
+
+
+
+    #}
+    <tr>
+      <td>
+        {% if (_task_info is defined) and (_task_info | length) %}
+          {#
+          LOOP AROUND EACH TASK TYPE
+          --------------------------
+
+
+          #}
+          {% for _task_type_report_item in [ 'PROMOTE CCV', 'PUBLISH CCV', 'PUBLISH CV', 'REMOVE OLD CCV', 'REMOVE OLD CV' ] %}
+            {#
+              Define a counter 'value' to check if there were any tasks
+              of the type in the above FOR LOOP.
+
+              This is used to display a message if there are NO tasks of
+              the required type.
+
+              useful for confirming to anyone looking at the report to 
+              check there was definitely no tasks and no a part of the
+              report was missing.
+
+
+              You may think the counter looks strange and appears to be
+              an array - and you would be right! :-)
+
+              It has to be done this way because of Jinja2's scoping
+              rules.
+
+              https://stackoverflow.com/questions/46939756/setting-variable-in-jinja-for-loop-doesnt-persist-between-iterations
+
+            #}
+            {% set _task_type_counter = [] %}
+            <table class="report_table">
+              <tr>
+                <td colspan="2" style="color: #000000; background-color: #D4D4D4; font-weight: bold">{{ _task_type_report_item }}</td>
+              </tr>
+              {# 
+              CHECK IF EACH TASK APPLIES TO THE CURRENT TASK TYPE
+              ---------------------------------------------------
+              #}
+              {% for _task_info_item in _task_info %}
+                {% if _task_info_item.task_type.startswith(_task_type_report_item) %}
+                    {% if _task_type_counter.append(1) %}{% endif %}
+                    {#
+                        DETERMINE THE COLOUR OF THE TASK TEXT BASED ON THE 
+                        'result' ...
+
+
+                        Success   => Green
+
+                    #}
+                    {% if _task_info_item.task_result == "success" %}
+                        {% set _task_status_foreground_colour = "#52BE80" %}
+                    {#
+                        Warning   => Orange
+
+                    #}
+                    {% elif _task_info_item.task_result == "warning" %}
+                        {% set _task_status_foreground_colour = "#CA6F1E" %}
+                    {#
+                        Cancelled
+                        Pending
+                        Error     => Red
+
+                    #}
+                    {% else %}
+                        {% set _task_status_foreground_colour = "#A93226" %}
+                    {% endif %}
+                    {#
+                      DISPLAY DETAILS AND STATUS OF A TASK
+                      ------------------------------------
+
+                    #}
+                    <tr>
+                      <td style="width: 85%; align: left; font-size: 12px; font-family: 'Lucida Console', monospace; color: {{ _task_status_foreground_colour }};">{{ _task_info_item.task_description }}</td>
+                      <td style="width: 15%; align: right;"><a style="font-size: 12px; font-family: 'Lucida Console', monospace; color: {{ _task_status_foreground_colour }};" href="{{ satcb_http_protocol }}://{{ satcb_hostname }}/foreman_tasks/tasks/{{ _task_info_item.task_id }}/">{{ _task_info_item.task_state | upper}}/{{ _task_info_item.task_result | upper }}</a></td>
+                    </tr>
+                {% endif %}
+              {% endfor %}
+              {#
+                IF THERE ARE NO TASKS OF THE TYPE IN: _task_info_item THEN
+                DISPLAY AN INFORMATIONAL MESSGE
+
+              #}
+              {% if _task_type_counter|length == 0 %}
+                <tr><td><div style="font-size: 12px; font-family: 'Lucida Console', monospace; color: #000000;">Ignoring - no tasks of this type executed during this run.</div></td></tr>
+              {% endif %}
+              {% if _task_type_report_item == "PROMOTE CCV" %}
+                <tfoot>
+                  <tr>
+                    <td style="align: left; font-family: 'Lucida Console', monospace; color: #000000;" colspan="2">* Promotions to lifecycle: LIBRARY are not listed here. Only promotions to defined Lifecycle Environments are listed.</td>
+                  </tr>
+                </tfoot>
+              {% endif %}
+            </table>
+            <tr><td><br/></td></tr>
+            <tr><td><br/></td></tr>
+          {% endfor %}
+        {% endif %}
+      </td>
+    </tr>
+
+
+    {#
+    ANSIBLE LOG OUTPUT
+    ------------------------
+
+
+    #}
+
+{#
+===
+  At present outputing the text of the ANSIBLE log file is not working.
+
+  This will be looked at for release in a future version
+
+    <tr>
+      <td>
+        <table class="report_table">
+          <tr>
+            <td style="text-align: left;color: #000000; background-color: #D4D4D4; font-weight: bold">ANSIBLE LOG OUTPUT: {{ _playbook_log }}</td>
+          </tr>
+            <tr>
+              <td colspan="2">
+              </td>
+            </tr>
+        </table>
+      </td>
+   </tr>
+===
+#}
+  </table>
+{#
+===
+  At present outputing the text of the ANSIBLE log file is not working.
+  
+  This will be looked at for release in a future version
+
+  <div>
+  {% if _playbook_log|length %}
+    <script type="text/javascript">
+      $(".text").text("{{ _playbook_log }}");
+    </script>
+  {% else %}
+    No separate log file found. Either the logfile has been removed or the LOG variable was not defined.
+  {% endif %}
+  </div>
+==
+#}
+</body>
+</html>

@@ -1,0 +1,62 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  _build_ccv_component_ids.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  25/02/2020
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# An internal collection of tasks used to check the status of a Satellite task
+# initiated by a API call.
+#
+#
+# Used in:-
+#
+#   _publish_content.yaml
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+# 
+#   - uri:
+#       url: <some API call>
+#       .
+#       .
+#     resgiter: _api_call_info
+#
+#   - include_tasks: _check_task.yaml
+#     vars:
+#       _satcb_task_id: "{{ _api_call_info.json.id }}"
+#
+#
+# VARIABLE DEPENDENCIES
+#-----------------------------------------------------------------------------
+#
+#  _satcb_task_id:  ID number of the task in the Satellite
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _build_ccv_component_ids"  
+
+
+- name: "{{ _subtask_name_prefix }}  -  Getting versions list of current content view [{{ _content_name}}] id [{{ _content_id }}]"
+  set_fact:
+    _current_cv_version_list: "{{ _available_cv_ccv_list.json | json_query(_query_ccv_cv_version_list) }}"
+  vars:
+    _query_ccv_cv_version_list: "results[?label=='{{ item }}'].versions[*].{id: id, environment_ids: environment_ids} | [0]"
+
+
+- name: "{{ _subtask_name_prefix }}  -  Adding latest version id of each content view to CCV component list"
+  set_fact:
+    _satcb_ccv_component_ids: "{{ _satcb_ccv_component_ids + [ _inner_item.id ] }}"
+  when: "_library_id | int in _inner_item.environment_ids"
+  with_list: "{{ _current_cv_version_list }}"
+  loop_control:
+    loop_var: _inner_item

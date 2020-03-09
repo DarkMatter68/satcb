@@ -1,0 +1,508 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  step-00_load-config-checks.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  19/12/2019
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# In this file the appropriate config file is loaded based on the SATELLITE
+# hostname defined by variable:-
+#
+#   satcb_hostname
+#
+#
+# NOTE:   If the hostname is empty/not defined then a default config will be
+#         used, which *should* cause the playbook to fail.
+#
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include: step-00_load-config.yaml
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _task_name_prefix: "STEP 00  -  LOAD CONFIG"
+
+
+#
+#----
+# The following variables are used to record if there has been a detectible
+# error in the playbook.
+#
+# NOTE: _PLAYBOOK_ERROR_MSG is a *LIST* so multiple errors can be displayed
+#       to MAIL REPORT.
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define variables to record playbook status"
+  set_fact:
+    _PLAYBOOK_STATUS:     "SUCCESS"
+    _PLAYBOOK_ERROR_MSG:  []
+    _playbook_start_time: "{{ ansible_date_time.date }} {{ ansible_date_time.time }} [{{ ansible_date_time.tz }}]"
+    _playbook_end_time: 
+  tags:
+    - load_config
+    - load_config_playbook_status
+
+
+- name: "{{ _task_name_prefix }}  -  Initialize _satcb_ipaddress to NXDOMAIN"
+  set_fact:
+    _satellite_ipaddress: "NXDOMAIN"
+
+
+- block:
+  - debug:
+      msg: "{{ _task_name_prefix }}  -  Check the Satellite HOSTNAME (satcb_hostname) is not defined or is empty"
+  - set_fact: 
+      _PLAYBOOK_STATUS: "ERROR"
+      _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }} - The variable: satcb_hostname is either not defined or empty.' ] }}"
+  when: (satcb_hostname is not defined) or (satcb_hostname == "")
+  tags:
+    - load_config
+    - load_config_hostname_check
+
+
+- name: "{{ _task_name_prefix }}  -  Getting list of python-dns RPMs"
+  yum:
+    list: python-dns
+  register: _is_python_dns_installed
+
+
+- set_fact:
+    _python_dns_version:  "{{_is_python_dns_installed | json_query(_json_query_python_dns) | string}}"
+  vars:
+    _json_query_python_dns: "results[?yumstate=='installed'].version | [0]"
+
+    
+- debug:
+    var: _python_dns_version
+
+
+- block:
+  - debug:
+      msg: "{{ _task_name_prefix }}  -  Check the RPM: python-dns is installed"
+  - set_fact: 
+      _PLAYBOOK_STATUS: "ERROR"
+      _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }} - The package python-dns is NOT installed. Required for DNS lookup.' ] }}"
+  when: (_python_dns_version is not defined) or (_python_dns_version == "None")
+  tags:
+    - load_config
+    - load_config_check_rpm
+
+
+- name:
+  set_fact:
+    _satellite_ipaddress: "{{ lookup('dig', satcb_hostname)}}"
+  when: _python_dns_version != "None"
+
+
+- debug:
+    msg: "Satellite IP Address: {{ _satellite_ipaddress }}"
+
+
+
+- block:
+  - debug:
+      msg: "{{ _task_name_prefix }}  -  Check the Satellite HOSTNAME ({{ satcb_hostname }}) is valid"
+  - set_fact: 
+      _PLAYBOOK_STATUS: "ERROR"
+      _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }} - The value of: satcb_hostname is not a valid DNS record: {{ satcb_hostname }}. (Or the python-dns RPM is not installed.)' ] }}"
+  when: ( _satellite_ipaddress == 'NXDOMAIN')
+  tags:
+    - load_config
+    - load_config_hostname_check
+
+
+
+#
+#----
+# Load the SATELLITE CONFIG FILE
+#
+# The file should be in the 'vars' directory and have the following
+# naming convention:-
+#
+#   ../vars/satcb_config-<satellite hostname>.yaml
+#
+# 
+# e.g.
+#
+#   ../vars/satcb_config-satellite.mydomain.com.yaml
+#
+#
+# NOTE: The value used for: <satellite hostname> in the file name
+#       *must* be the same as defined in variable:-
+#
+#         {{ satcb_hostname }}
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define cofiguration filename"
+  set_fact:
+##    _satcb_config_filename: "satcb_config-{{ satcb_hostname }}.yaml"
+##    _satcb_config_filename: "{{ satcb_config_filename if satcb_config_filename is defined else 'satcb_config-' + satcb_hostname + '.yaml' }}"
+    _satcb_config_filename: "{{ satcb_config_filename | default('satcb_config-' + satcb_hostname + '.yaml') }}"
+
+
+- name: "{{ _task_name_prefix }}  -  LOAD PLAYBOOK CONFIG FOR SATELLITE: {{ satcb_hostname }} - {{ _satcb_config_filename }}"
+  include_vars: "{{ item }}"
+  with_first_found:
+      - "../vars/{{ _satcb_config_filename }}"
+      - "../vars/satcb_config-default.yaml"
+  tags:
+    - load_config
+    - load_config_playbook_config
+
+
+
+#
+#----
+# Set variables used in ROLE: satellite6-content_views
+#
+# While the playbook is still using the role: satellite6-content_views setup
+# the following variables used by the role ("sat_*") ...
+#
+# 'sat_remove_old_cv': define 'true' if OLD CV/CCV should be removed.
+#
+# By default this variable will be set to FALSE.
+#
+# The OLD versions should not be removed *until* all the CV and
+# CCV's are published *AND* the CCV's have been promoted.
+#
+# This will prevent the playbook from trying to remove older
+# versions of a CV immediately after publishing. Only once the
+# CCV's are PROMOTED should we remove older CCV's and then older
+# CV's.
+# 
+#
+##----
+## 2020-02-27: Commented-out
+##
+## We should NOT be using these variables anymore ...
+##
+##- name: "{{ _task_name_prefix }}  -  Define variables for ROLE: satellite6-content_views"
+##  set_fact:
+##    sat_user:     "{{ satcb_user }}"
+##    sat_password: "{{ satcb_password }}"
+##    sat_org:      "{{ satcb_organization }}"
+##    sat_hostname: "{{ satcb_hostname }}"
+##    sat_cv_name:
+##    sat_remove_old_cv: false
+##  tags:
+##    - load_config
+##    - load_config_role_vars
+    
+
+
+#
+#----
+# The following 'dictionary' is used to put a sensible date stamp in the 
+# CV / CCV description when it is published.
+#
+#
+# NOTE: for 'weekly' we add 1 to week number because the date counter starts
+#       from 0 (zero) instead of 1.
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define build frequency dictonary"
+  set_fact:
+    _allowed_build_frequency:
+      yearly:     "{{ ansible_date_time.year }}"
+      quarterly:  "{{ ansible_date_time.year }}-Q{{ ((ansible_date_time.month|int - 1) / 3)|int + 1 }}"
+      monthly:    "{{ ansible_date_time.year }}-{{ ansible_date_time.month }}"
+      weekly:     "{{ ansible_date_time.year }}-{{ ansible_date_time.weeknumber|int + 1}}"
+      daily:      "{{ ansible_date_time.year }}-{{ ansible_date_time.month }}-{{ ansible_date_time.day }}"
+  tags:
+    - load_config
+    - load_config_build_frequency
+
+
+
+#
+#----
+# Build the description for when CV/CCV are published.
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define build date"
+  set_fact:
+    _build_date:          '{{_allowed_build_frequency[satcb_build_frequency | default("this key does not exist in the dict")] | default("") }}'
+  tags:
+    - load_config
+    - load_config_build_date
+
+
+- name: "{{ _task_name_prefix }}  -  Define CV/CCV description"
+  set_fact:
+    _publish_description: "{{ _build_date }} - {{ satcb_build_purpose }} [{{ satcb_build_frequency|capitalize }}]"
+  tags:
+    - load_config
+    - load_config_cv_ccv_desc
+
+
+
+#
+#----
+# Create an initial Email subject
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define the Email subject"
+  set_fact:
+    _email_subject:       "{{ _publish_description }}"
+  tags:
+    - load_config
+    - load_config_email_subject
+
+
+
+#
+#----
+# This variable is used to determine value of:-
+#
+#   my_minimum_old_content_version
+#
+# 
+# This allows the playbook to 'intelligently' determine a reasonable
+# absolute minimum number of old versions to keep for CV's & CCV's.
+#
+#
+# In the list below I do not expect anyone to seriously use 'yearly'
+# or 'daily' they are simply there for completeness.
+#
+#
+#------------------------------------------------------------------------------
+# IMPORTANT:
+#
+# IT IS *VERY* IMPORTANT FOR THE STABILITY & PERORMANCE OF THE 
+# SATELLITE TO *NOT* KEEP TOO MANY OLDER VERSIONS.
+#
+#------------------------------------------------------------------------------
+#
+#
+# FUTURE IMPROVEMENT [note to self ;-) ]:-
+# ======================================
+# Combine this list into: _allowed_build_frequency.
+# (Basically, build a dictionary.)
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define minumum CV/CCV versions"
+  set_fact:
+    _minimum_versions_to_keep:
+      yearly:     5
+      quarterly:  5
+      monthly:    8
+      weekly:     10
+      daily:      10
+  tags:
+    - load_config
+
+
+
+#
+#----
+# The minimum number of CV / CCV to keep.
+#
+#
+# NOTE: If the value of '_minimum_versions_to_keep' cannot be
+#       determined I have defined an ABSOLUTE MINIMUM OF: 10
+#
+#         default(10)
+#
+#       if 'monthly' is not a valid value in the list. This
+#       ensure there is at least some value selected.
+#
+#
+# FUTURE IMPROVEMENT [note to self ;-) ]:-
+# ======================================
+#
+# The *minimum* number of old versions to keep should probably
+# be related to the total number of lifecycle environments.
+#
+# e.g.  If there are 4 lifecycle environments then we should keep
+#       at least 4 + 1 versions.
+#
+# Alternatively: (and more ambitous) is to check the dates of 
+# older versions of a CV / CCV and perform the removal based on
+# date rather than a hard number. This would be useful if a lot of
+# 'point' (emergency) releases were done ...
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define variable _minumum_versions_to_keep"
+  set_fact:
+    _minimum_old_content_versions: '{{_minimum_versions_to_keep[satcb_build_frequency | default("monthly")] | default(10) | int }}'
+  tags:
+    - load_config
+
+
+
+#
+#----
+# Define how many OLD CV/CCV should be retained. by default the
+# number of versions to keep is set to the value in:-
+#
+#   _minimum_old_content_versions
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define variable satcb_keep_old_content_versions"
+  set_fact:
+    satcb_keep_old_content_versions: "{{ satcb_keep_old_content_versions | default(_minimum_old_content_versions) | int }}"
+  tags:
+    - load_config
+
+
+
+#
+#----
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define the HTTP protocol"
+  set_fact:
+    satcb_http_protocol: "{{ satcb_http_protocol | default('https') if (satcb_http_protocol == 'http' or satcb_http_protocol == 'https') else 'https' }}"
+  tags:
+    - load_config
+
+
+
+#
+#----
+# Object containing a list of all the CV's for each CCV
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define variable CV and CCV list"
+  set_fact:
+    _ccv_cv_list: {}
+  tags:
+    - load_config
+
+
+
+#
+#----
+# Load the INCLUDE LIST from a file in 'vars'.
+#
+# The file should be in the 'vars' directory and (by default) have the following
+# naming convention:-
+#
+#   ../vars/include_list-<satellite hostname>.yaml
+#
+# 
+# e.g.
+#
+#   ../vars/include_list-satellite.mydomain.com.yaml
+#
+# If the parameter: satcb_include_list_filename is set then that
+# will be the file the playbook will look for. If this does not
+# exist then the 'default' file will be used.
+#
+#
+# NOTE: The value used for: <satellite hostname> in the file name
+#       *must* be the same as defined in variable:-
+#
+#         {{ satcb_hostname }}
+#
+#
+- debug:
+    var: satcb_include_list_filename
+
+- name: "{{ _task_name_prefix }}  -  Define INCLUDE list filename"
+  set_fact:
+##    _satcb_include_list_filename: "{{ satcb_include_list_filename if satcb_include_list_filename is defined else 'include_list-' + satcb_hostname + '.yaml' }}"
+    _satcb_include_list_filename: "{{ satcb_include_list_filename | default('include_list-' + satcb_hostname + '.yaml') }}"
+
+
+- debug:
+    var: _satcb_include_list_filename
+
+
+- name: "{{ _task_name_prefix }}  -  LOAD INCLUDE LIST FOR SATELLITE: {{ satcb_hostname }} - {{ _satcb_include_list_filename }}"
+  include_vars: "{{ item }}"
+  with_first_found:
+      - "../vars/{{ _satcb_include_list_filename }}"
+      - "../vars/include_list-default.yaml"
+  tags:
+    - load_config
+    - load_config_include_list
+
+
+- debug:
+    var: satcb_include_list
+
+#
+#----
+# Load the EXCLUDE LIST from a file in 'vars'.
+#
+# The file should be in the 'vars' directory and (by default) have the following
+# naming convention:-
+#
+#   ../vars/exclude_list-<satellite hostname>.yaml
+#
+# 
+# e.g.
+#
+#   ../vars/exclude_list-satellite.mydomain.com.yaml
+#
+#
+# If the parameter: satcb_exclude_list_filename is set then that
+# will be the file the playbook will look for. If this does not
+# exist then the 'default' file will be used.
+#
+#
+# NOTE: The value used for: <satellite hostname> in the file name
+#       *must* be the same as defined in variable:-
+#
+#         {{ satcb_hostname }}
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define exclude list filename"
+  set_fact:
+##    _satcb_exclude_list_filename: "{{ satcb_exclude_list_filename if satcb_exclude_list_filename is defined else 'exclude_list-' + satcb_hostname + '.yaml' }}"
+    _satcb_exclude_list_filename: "{{ satcb_exclude_list_filename | default('exclude_list-' + satcb_hostname + '.yaml') }}"
+
+
+- debug:
+    var: _satcb_exclude_list_filename
+
+
+- name: "{{ _task_name_prefix }}  -  LOAD EXCLUDE LIST FOR SATELLITE: {{ satcb_hostname }} - {{ _satcb_exclude_list_filename }}"
+  include_vars: "{{ item }}"
+  with_first_found:
+      - "../vars/{{ _satcb_exclude_list_filename }}"
+      - "../vars/exclude_list-default.yaml"
+  tags:
+    - load_config
+    - load_config_exclude_list
+
+
+- debug:
+    var: satcb_exclude_list
+
+
+- name: "{{ _task_name_prefix }}  -  CHECK FORCE RE-PROMOTION TO LIFECYCLE ENVIRONMENTS"
+  set_fact:
+    satcb_force_promotion: "{{ satcb_force_promotion | default('false') | bool }}"
+
+- debug:
+    var: satcb_force_promotion
+
+
+#- name: "TEST  -  MAIL REPORT  -  Email the report to [{{ satcb_email_to | join(',') }}]"
+#  debug: 
+#    msg: "{{ satcb_email_to | join(',') }}"
+#
+#
+#- pause:
+#    prompt: "PRESS ANY KEY TO CONTINUE ..."
+#
+
+- name: "{{ _task_name_prefix }}  -  Sending Email report with error message(s)"
+  include: mail_report.yaml
+  when: _PLAYBOOK_STATUS != "SUCCESS"
+  tags:
+    - load_config
+    - load_config_email

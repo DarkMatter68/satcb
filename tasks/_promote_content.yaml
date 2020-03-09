@@ -1,0 +1,183 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  _promote_content.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  27/02/2020
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# An internal collection of tasks used to promote a CCV to a lifecycle
+# environment.
+#
+#
+# Used in:-
+#
+#   step-05_promote_ccv.yaml
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include_tasks: _promote_content.yaml
+#
+#
+# VARIABLE DEPENDENCIES
+#-----------------------------------------------------------------------------
+#
+#  _content_name.......:  name of the specific CV / CCV to publish
+#
+#  _publish_description:  Standard text each CV/CCV gets to describe the 
+#                         baseline.
+#-----------------------------------------------------------------------------
+#
+#
+
+
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _promote_content"
+
+
+#
+#----
+# Define variable:  _content_id
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  Get content ID for [{{ _content_name }}]"
+  include_tasks: _get_content_id.yaml
+
+
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _promote_content"
+
+
+#
+#----
+# Define variable: _content_information
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  Get content information for [{{ _content_name }}]"
+  include_tasks:  _get_content_information.yaml
+
+
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _promote_content"
+
+
+#
+#----
+# Get Environment list for the Organization
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  Get environment list"
+  uri:
+    url: "{{ _satcb_url_katello_api }}/environments?organization_id={{ _organization_id }}"
+    method: GET
+    user: "{{ satcb_user }}"
+    password: "{{ satcb_password }}"
+    validate_certs: no
+    force_basic_auth: yes
+  register: _environment_list
+
+
+- debug:
+    var: _environment_list
+
+
+
+#
+#----
+# Initialize the variables used for determining the ENV path.
+#
+# NOTE: '_satcb_env_path' is a LIST
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  Initializing _satcb_current_env_name"
+  set_fact:
+    _satcb_current_env_name: "{{ satcb_promote_ccv_to_env }}"
+    _satcb_env_path: 
+      - "{{ satcb_promote_ccv_to_env }}"
+
+
+- debug:
+    var:  _satcb_current_env_name
+
+
+- debug:
+    var:  _satcb_env_path
+
+
+#
+#----
+# Build environment path
+#
+#
+#The only way I managed to build the environment path
+#Couldn't use until with a block
+#Couldn't use until with only set_fact, as it will set the value only once
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  Setting [{{ _satcb_current_env_name }}] in path"
+  set_fact:
+    _satcb_env_path: "{{ [ _environment_list.json | json_query(_query_env_prior) ] + _satcb_env_path }}"
+    _satcb_current_env_name: "{{ _environment_list.json | json_query(_query_env_prior) }}"
+  vars:
+    _query_env_prior: "results[?name=='{{ _satcb_current_env_name }}'].prior.name | [0]"
+  when:
+    - not _environment_list.json | json_query(_query_env_prior) == 'Library'
+##    - sat_follow_env_path
+  with_sequence: start=0 end=15 stride=1
+
+
+- debug:
+    msg: "Current ENV name - [{{ _satcb_current_env_name }}]"
+
+
+- debug:
+    msg: "BUILT ENV path - {{ _satcb_env_path }}"
+
+
+#
+#----
+# Get the last version of the CCV
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  Get last content view version"
+  set_fact:
+##    _content_last_version: "{{ sat_cv.json | json_query(_query_cv_version_list) | sort(attribute='published') | last }}"
+    _content_last_version: "{{ _content_information.json | json_query(_query_cv_version_list) | sort(attribute='published') | last }}"
+  vars:
+    _query_cv_version_list: "versions[*].{id: id, version: version, environment_ids: environment_ids, published: published}"
+
+
+- name: "{{ _subtask_name_prefix }}  -  Get content view version content"
+  uri:
+    url: "{{ _satcb_url_katello_api }}/v2/content_view_versions/{{ _content_last_version.id }}"
+    method: GET
+    user: "{{ satcb_user }}"
+    password: "{{ satcb_password }}"
+    validate_certs: no
+    force_basic_auth: yes
+  register: _content_view_version_last
+
+
+- debug:
+    var: _content_view_version_last
+
+
+#
+#----
+# Promote the CCV to the lifecycle environment
+#
+#
+- set_fact:
+    _temp_task_type: "{{ _task_type }}"
+
+- name: "{{ _subtask_name_prefix }}  -  Promote [{{ _content_name }} to {{ _satcb_env_path }}"
+  include_tasks:
+    _promote_to_environment.yaml
+  with_items: "{{ _satcb_env_path }}"

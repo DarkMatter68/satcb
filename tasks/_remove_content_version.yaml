@@ -1,0 +1,100 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  _remove_content_version.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  28/02/2020
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# An internal collection of tasks used to remove old CV / CCV versions
+#
+#
+# Used in:-
+#
+#   _remove_content.yaml
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include_tasks: _remove_content_version.yaml
+#
+#
+# VARIABLE DEPENDENCIES
+#-----------------------------------------------------------------------------
+#
+# _content_information..:
+#
+#
+# _satcb_cv_version_list: Not the entire list put each element of the list is
+#                         passed 1-at-a-time from: _remove_content.yaml
+#
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _remove_content_version"
+
+
+- debug:
+    var: item
+
+
+- block:
+  - set_fact:
+      _satcb_task_description: "Remove content [{{ _content_information.json.name }}] version [{{ item.version }}] id [{{ item.id }}]"
+
+
+  - name: "{{ _subtask_name_prefix }}  -  {{ _satcb_task_description }}"
+    uri:
+      url: "{{ _satcb_url_katello_api }}/v2/content_views/{{ _content_id }}/remove?organization_id={{ _organization_id }}"
+      method: PUT
+      body:
+        id: "{{ _content_id }}"
+        environment_ids: ""
+        content_view_version_ids:
+          - "{{ item.id }}"
+      body_format: json
+      status_code: 202
+      user: "{{ satcb_user }}"
+      password: "{{ satcb_password }}"
+      validate_certs: no
+      force_basic_auth: yes
+      timeout: "{{ satcb_url_timeout }}"
+    register: _content_remove
+    #
+    #----
+    # Andy: 2019-11-01
+    #
+    # Not deleting a CV because it is still in a CCV I
+    # do not consider a 'failure' this is correct and
+    # good behaviour.
+    #
+    # Only really fail if the JSON status is not 202 *AND*
+    # the error message does not report it is because it is
+    # still in a CCV.
+    #
+    # ALSO, failing to delete a CCV version because it is
+    # still in a Lifecycle Environment should not be
+    # considered an error.
+    #
+    #
+    failed_when: _content_remove.status | int != 202 and (_content_remove.json.errors[0] is defined and _content_remove.json.errors[0] | length > 0) and 'Cannot delete version while it is in' not in _content_remove.json.errors[0]
+      
+
+  - name: "{{ _subtask_name_prefix }}  -  Check API call task [{{ _content_remove.json.id }}]"
+    include: _check_task.yaml
+    vars:
+      _satcb_task_id: "{{ _content_remove.json.id }}"
+    when: _content_remove.json.id is defined
+
+
+  rescue:
+  - debug:
+      msg: "Could not remove content [{{ _content_information.json.name }} - [{{ item.version }}] Status: [{{ _content_remove.status }}] TASK ID: [{{ _satcb_task_id }}]"

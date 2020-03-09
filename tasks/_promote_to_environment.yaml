@@ -1,0 +1,171 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  _promote_to_environment.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  27/02/2020
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# An internal collection of tasks used to promote a CCV to a lifecycle
+# environment.
+#
+#
+# Used in:-
+#
+#   step-05_promote_ccv.yaml
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include_tasks: _promote_content.yaml
+#
+#
+# VARIABLE DEPENDENCIES
+#-----------------------------------------------------------------------------
+#
+#  _content_view_version_last:  Information for the LATEST content (CCV) to
+#                               promote to the lifecycle.
+#
+#  _publish_description......:  Standard text each CV/CCV gets to describe the 
+#                               baseline.
+#
+#  _temp_task_type...........:  Used to add the lifecycle environment name to
+#                               to the TASK TYPE.
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _promote_to_environment ({{ item }})"
+
+
+- block:
+  #
+  #----
+  # Get the ID of the Lifecycle Environment.
+  #
+  #
+  - name: "{{ _subtask_name_prefix }}  - Determine Environment ID for [{{ item }}]"
+    set_fact:
+      _satcb_env_id: "{{ _environment_list.json | json_query(_query_env_id) }}"
+    vars:
+      _query_env_id: "results[?name=='{{ item }}'].id | [0]"
+
+
+  - debug:
+      msg: "Environment: [{{ item }}] has ID number [{{ _satcb_env_id }}]"
+
+
+  - debug:
+      var: _content_view_version_last.json.environments
+    when: _DEBUG_ME == true
+
+
+  #
+  #----
+  # Check if the LATEST content version has already been promoted to the 
+  # lifecycle environment
+  #
+  #
+  - set_fact:
+      _satcb_env_is_promoted: false
+
+  - name: "{{ _subtask_name_prefix }}  -  Checking if environment [{{ item }}] - [{{ _satcb_env_id }}] is already promoted to [{{ _content_view_version_last.json.name}}]"
+    set_fact:
+      _satcb_env_is_promoted: "{{ _satcb_env_is_promoted if (_check_env_id_item.id | int != _satcb_env_id | int) else true }}"
+    loop: "{{ _content_view_version_last.json.environments }}"
+    loop_control:
+      loop_var: _check_env_id_item
+    vars: 
+      _query_env_is_promoted: "environments[?id=='{{ _satcb_env_id }}']"
+    no_log: true
+
+
+  - debug:
+      msg: "Environment: [{{ item }}] - [{{ _satcb_env_id }}] is {{ 'ALREADY' if _satcb_env_is_promoted else 'NOT' }} promoted to [{{ _content_view_version_last.json.name}}]"
+
+
+  #
+  #----
+  # If the CCV is *alread* promoted to the LC environment then these next 2
+  # tasks define a message in the playbook (error) log.
+  #
+  # The message will be displayed in the report Email if there are NO tasks
+  # performed to explain why nothing was done.
+  #
+  #
+  - set_fact:
+      _temp_info_msg: "Environment: {{ item }} - {{ _satcb_env_id }} is ALREADY promoted to {{ _content_view_version_last.json.name }}"
+  - set_fact:
+      _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG | default([]) + [ _temp_info_msg ] }}"
+    when: _satcb_env_is_promoted == true
+
+
+  - debug:
+      var: _PLAYBOOK_ERROR_MSG
+    when: _satcb_env_is_promoted == true
+
+
+  - debug:
+      msg: "NOTE:  FORCING RE-PROMOTION TO LIFECYCLE: [{{ item }}] HAS BEEN SET TO TRUE"
+    when: satcb_force_promotion
+
+
+  #
+  #----
+  # Promote content to lifecycle
+  #
+  # Content is *only* promoted to a Lifecycle Environment *IF*
+  # it has not already been promoted to the LE *OR* if the 
+  # parameter:-
+  #
+  #   satcb_force_promotion
+  #
+  #
+  # is set to TRUE
+  #
+  #
+  - block:
+    - set_fact:
+        _satcb_task_description: "Promote content [{{ _content_view_version_last.json.name }}] to [{{ item }}]"
+
+
+    - name: "{{ _subtask_name_prefix }}  -  Define the task type to include the lifecycle environment"
+      set_fact:
+        _task_type: "{{ _temp_task_type }}: {{ item }}"
+
+
+    - name: "{{ _subtask_name_prefix }}  -  {{ _satcb_task_description }}"
+      uri:
+        url: "{{ _satcb_url_katello_api }}/v2/content_view_versions/{{ _content_view_version_last.json.id }}/promote"
+        method: POST
+        body:
+          id: "{{ _content_view_version_last.json.id }}"
+          description: "{{ _publish_description }}"
+          environment_id: "{{ _satcb_env_id }}"
+        body_format: json
+        status_code: 202
+        user: "{{ satcb_user }}"
+        password: "{{ satcb_password }}"
+        validate_certs: no
+        force_basic_auth: yes
+        timeout: "{{ satcb_url_timeout }}"
+      register: _content_promote
+
+    - name: "{{ _subtask_name_prefix }}  -  Check API call task [{{ _content_promote.json.id }}]"
+      include: _check_task.yaml
+      vars:
+        _satcb_task_id: "{{ _content_promote.json.id }}"
+      when: _content_promote.json.id is defined
+
+
+    rescue:
+    - debug:
+        msg: "Could not promote content {{ _content_view_version_last.json.name }}, error is {{ _content_promote.json.errors }}"
+    when: (not _satcb_env_is_promoted) or satcb_force_promotion

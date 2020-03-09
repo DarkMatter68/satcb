@@ -1,0 +1,135 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  step-01_pre-checks.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  29/11/2019
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# These 'tasks' will perform some basic checks before
+# running the rest of the playbook.
+#
+# If any of the tasks 'fail' then we define a error message
+# in: _PLAYBOOK_ERROR_MSG and set the _PLAYBOOK_STATUS to
+# "ERROR".
+#
+# In this file we performing the following checks:-
+#
+#   + is 'satcb_hostname' not empty
+#
+#   + is: 'satcb_user' empty
+#
+#   + is: 'satcb_password' empty
+#
+#   + is the connection to the REST API working.
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include: step-01_pre-checks.yaml
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _task_name_prefix: "STEP 01  -  PRE-CHECKS"
+
+
+- block:
+  - debug:
+      msg: "{{ _task_name_prefix }}  -  The Satellite HOSTNAME (satcb_hostname) is not defined or is empty"
+  - set_fact: 
+      _PLAYBOOK_STATUS: "ERROR"
+      _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - The variable: satcb_hostname is either not defined or empty.' ] }}"
+  when: (satcb_hostname is not defined) or (satcb_hostname == "")
+  tags:
+    - precheck
+    - precheck_hostname_check
+
+
+- block:
+  - debug:
+      msg: "{{ _task_name_prefix }}  -  The Satellite USER (satcb_user) is not defined or is empty."
+  - set_fact: 
+      _PLAYBOOK_STATUS: "ERROR"
+      _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - The variable: satcb_user is either not defined or empty.' ] }}"
+  when: (satcb_user is not defined) or (satcb_user == "")
+  tags:
+    - precheck
+    - precheck_user_check
+
+
+- block:
+  - debug:
+      msg: "{{ _task_name_prefix }}  -  Check the Satellite PASSWORD is defined correctly"
+  - set_fact: 
+      _PLAYBOOK_STATUS: "ERROR"
+      _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - The variable: satcb_password is either not defined or empty.' ] }}"
+  when: (satcb_password is not defined) or (satcb_password == "")
+  tags:
+    - precheck
+    - precheck_password_check
+
+
+- block:
+  - debug:
+      msg: "{{ _task_name_prefix }}  -  Check the build frequency to be used is valid"
+  - set_fact: 
+      _PLAYBOOK_STATUS: "ERROR"
+      _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - The variable: satcb_build_frequency is not a valid value: {{ satcb_build_frequency }}.' ] }}"
+  when: (satcb_build_frequency is not defined) or (satcb_build_frequency == "") or (_allowed_build_frequency[satcb_build_frequency] is not defined)
+  tags:
+    - precheck
+    - precheck_build_frequency
+
+
+
+- name: "{{ _task_name_prefix }}  -  Create API URL variables"
+  set_fact:
+    _satcb_url_katello_api: "{{ satcb_http_protocol }}://{{ satcb_hostname }}/katello/api"
+    _satcb_url_foreman_tasks_api: "{{ satcb_http_protocol }}://{{ satcb_hostname }}/foreman_tasks/api"
+
+
+
+- block:
+  - name: "{{ _task_name_prefix }}  -  Checking the connection to the Satellite REST API is OK"
+    uri:
+      url: "{{ _satcb_url_katello_api }}/organizations"
+      method: GET
+      user: "{{ satcb_user }}"
+      password: "{{ satcb_password }}"
+      validate_certs: no
+      force_basic_auth: yes
+      status_code: 200
+    register: _connection_test
+
+  rescue:
+    - debug:
+        var: _connection_test
+    - set_fact:   
+        _PLAYBOOK_STATUS: "ERROR"
+        _temp: "{[ _task_name_prefix }}  - REST API connection test failed to: {{ satcb_hostname }} as user: {{ satcb_user }}. Status: {{ _connection_test.status | string }}."
+    - set_fact:
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ _temp ] }}"
+  when:
+    - (satcb_hostname is defined and satcb_hostname != "")
+    - (satcb_user is defined and satcb_user != "")
+    - (satcb_password is defined and satcb_password != "")
+  tags:
+    - precheck
+    - precheck_connection_test
+
+
+
+- name: "{[ _task_name_prefix }}  -  Sending Email report with error message(s)"
+  include: mail_report.yaml
+  when: _PLAYBOOK_STATUS != "SUCCESS"
+  tags:
+    - precheck
+    - precheck_email

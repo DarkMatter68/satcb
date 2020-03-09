@@ -1,0 +1,22 @@
+---
+#
+#----
+# List of CV and CCV to exclude from the publish / promote
+# process ...
+#
+# Use this list to EXCLUDE any CV/CCV from publishing &
+# promoting.
+#
+#
+# NOTE: If this list is empty/blank then *NO* CV/CCV
+#       will be excluded, unless there is a list defined
+#       in the 'include' YAML file.
+#
+#
+
+#
+#----
+# Satellite EXCLUDE list
+#
+#
+satcb_exclude_list: []

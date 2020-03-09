@@ -1,0 +1,87 @@
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  _update_composite_view_cv_versions.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  26/02/2020
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# An internal collection of tasks used to update a CCV with the *latest* 
+# versions of the CV's that belong to it.
+#
+#
+# Used in:-
+#
+#   _publish_content.yaml
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+# 
+#   - include_tasks: _update_composite_view_cv_versions.yaml
+#     when: (_content_information.json.composite is defined and _content_informaiton.json.composite)
+#
+#
+# VARIABLE DEPENDENCIES
+#-----------------------------------------------------------------------------
+#
+#  _content_id.........:  ID number of the task in the Satellite
+#
+#  _content_information:  All information for the specific CCV
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  - _update_composite_view_cv_versions" 
+
+#
+#----
+# It is important to ensure this list is re-initialized each time the list of
+# CV ID's is needed :)
+#
+#
+- name: "{{_subtask_name_prefix }}  -  Initializing list for CV ID's"
+  set_fact:
+    _satcb_ccv_component_ids: []
+
+
+#
+#----
+# Get the latest CV ID's to assign to the CCV
+#
+#
+- name: "{{_subtask_name_prefix }}  -  Build list of component ID's for CCV [{{ _content_information.json.name }}]"
+  include_tasks: _build_ccv_component_ids.yaml
+  with_items: "{{ _content_information.json | json_query(_query_ccv_component_labels_list) }}"
+  vars:
+    _query_ccv_component_labels_list: "components[*].content_view.label"
+
+
+- debug:
+    var: _satcb_ccv_component_ids
+
+
+#
+#----
+# Apply the CV ID's to the CCV
+#
+#
+- name: "{{_subtask_name_prefix }}  -  Update Composite Content View [{{ _content_information.json.name }}]"
+  uri:
+    url: "{{ _satcb_url_katello_api }}/v2/content_views/{{ _content_id }}"
+    method: PUT
+    body:
+      component_ids: "{{ _satcb_ccv_component_ids }}"
+    body_format: json
+    status_code: 200
+    user: "{{ satcb_user }}"
+    password: "{{ satcb_password }}"
+    validate_certs: no
+    force_basic_auth: yes
+    timeout: "{{ satcb_url_timeout }}"
+  register: _composite_content_view_update

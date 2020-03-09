@@ -1,0 +1,21 @@
+---
+#
+#----
+# List of CV and CCV to INCLUDE from the publish / promote
+# process ...
+#
+# Use this list to limit the CV/CCV to include for 
+# publishing & promoting.
+#
+#
+# NOTE: If this list is empty/blank then *any* CV/CCV
+#       **NOT** in the 'exclude' list YAML file will be
+#       included.
+#
+
+#
+#----
+# Satellite INCLUDE list
+#
+#
+satcb_include_list: []

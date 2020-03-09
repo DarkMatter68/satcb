@@ -1,0 +1,339 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Config file:  satcb_config-default.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  19/12/2019
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# Contains all the variables needed by the playbook that may be changeable 
+# by the person/entity running the playbook.
+#
+# But just because a variable is here and could be changed does not mean it
+# *should* be changed using "--extra-vars"  :-)
+#
+#
+# The variables most likely to be of interest are:-
+#
+#   satcb_hostname            - STRING
+#
+#   satcb_email_send          - BOOLEAN
+#
+#   satcb_email_to            - LIST
+#
+#   satcb_promote_ccv_only    - BOOLEAN
+#
+#   satcb_promote_ccv_to_env  - STRING
+#
+#
+#   
+#
+# NOTE:
+# ====
+#
+# The variable prefix: 'satcb_' used below, if you didn't guess stands for:-
+#
+#   SATellite Content Baseline
+#   ---       -       -
+#
+#
+#
+# IMPORTANT:  Using include / exclude file lists.
+# ===============================================
+# 
+# Do not *define* the include/exclude list variables in the config file.
+#
+#   satcb_include_list_filename
+#   satcb_exclude_list_filename
+#
+#
+# Why? This is because in 'normal' use the variable is not needed and the
+# playbook will first use a setting of:-
+#
+#   include_list-<FQDN of satellite>.yaml
+#   exclude_list-<FQDN of satellite>.yaml
+#
+#
+# If no such file exists it will fallback to:-
+#
+#  include_list-default.yaml 
+#  exclude_list-default.yaml 
+#
+#
+# If neither file exists then NO include/exclude list will be defined and
+# AlL CV/CCV will be included for publishing (and/or) promoting.
+#
+#
+# *ONLY* if you need a custom include/exclude list should you PASS the 
+# variable as part of the command-line "--extra-vars".
+#
+# The logic in the playbook checks if the variable is DEFINED. If the
+# variable was defined ut empty ("") then the playbook will not run properly.
+#
+#
+# Do not uncomment or set these variables here, instead use: 
+#
+#   --extra-vars='{ "satcb_include_list_filename": "<filename>", ... }'
+#
+#
+# or
+#
+#   --extra-vars='{ "satcb_exclude_list_filename": "<filename>", ... }'
+#
+#
+# THE INCLUDE EXCLUDE LIST IS MOST USEFUL WHEN THERE ARE MULTIPLE LIFECYCLE
+# ENVIRONMENT PATHS AND ONLY CERTAIN CCV SHOULD BE PROMOTED TO A PARTICULAR
+# LIFECYCLE ENVIRONMENT IN A PATH.
+#-----------------------------------------------------------------------------
+#
+#
+
+
+#
+#----
+# This variable can be used to run 'debug' tasks instead of skipping them.
+#
+#
+_DEBUG_ME: false
+
+
+#
+#----
+# Satellite connection information
+#
+# NOTE #1:  We deliberately do NOT specify a satellite hostname here
+#           this should always be specified in the --extra-vars parameter when
+#           running the playbook.
+#
+#
+#             --extra-vars="satcb_hostname=<FQDN of the satellite server>"
+#
+#           e.g.
+#
+#             --extra-vars="satcb_hostname=prod_satellite.my_company.com"
+#
+#
+# The connection will be tested using: tasks/pre_checks.yaml
+#
+#
+# NOTE #2:  The password in: satcb_password was encrypted using:-
+#
+#             ansible-vault encrypt_string '<password value>'   \
+#                           --name satcb_password
+#
+#
+#           The vault password used should be stored in a (secure) file and 
+#           referenced when the playbook is run with the following option:-
+#
+#             --vault-password-file=<path to vault password file>
+#
+#           e.g.
+#
+#             ansible-playbook <playbook name> [<extra vars>]   \
+#               --vault-password-file=~/code/ansible/vault/my_vault_password.txt
+#
+#
+# FUTURE IMPROVEMENT [note to self ;-) ]:-
+# ======================================
+#
+# Put the password into ERPM and then replace the password file with a script
+# which will retreive the password from ERPM.
+#
+#
+satcb_hostname:         ""
+satcb_organization:     "<name of satellite organization>"
+satcb_user:             "<name of satellite user for API calls"
+satcb_password:         "see NOTE #2 above"
+
+
+
+#
+#----
+# Email 
+#
+# NOTE: If 'satcb_email_send' is set to FALSE the playbook will STILL send a
+#       email if a error occurs in the playbook run.
+#
+#
+satcb_email_send:       true
+
+satcb_mydomain:         "mydomain.com"
+satcb_email_from:       "valid-email-contact@{{ satcb_mydomain }}"
+satcb_email_to:         [ "valid-email-contact@{{ satcb_mydomain }}" ]
+
+satcb_email_cc:         []
+satcb_email_bcc:        []
+
+satcb_email_port:       25
+satcb_email_host:       localhost
+
+satcb_email_subject:    ""
+
+
+#
+#----
+# With the following variable we can define if new CV/CCV should be published
+# *OR* if only CCV should be promoted to a lifecycle environment.
+#
+#
+satcb_promote_ccv_only: false
+
+
+#
+#----
+# Define the lifecycle environment to promote CCV to.
+#
+# NOTE: If this is a EMPTY string then NO ACTION will be taken and the CCV
+#       will remain promoted to LIBRARY.
+#
+#
+# FUTURE IMPROVEMENT [note to self ;-) ]:-
+# ======================================
+#
+# If a 'include' CCV list is implemented then also allow the MAX lifecycle a
+# CCV can be promoted to be defined.
+#
+#
+satcb_promote_ccv_to_env: ""
+
+
+#
+#
+#----
+# FUTURE IMPROVEMENT [note to self ;-) ]:-
+# ======================================
+#
+# This is for the (far far) future.
+#
+# Develop some method to *only* publish new CV/CCV if there has been a change.
+#
+# This will *not* be a trivial task - and may infact not be worth the effort
+# to develop. It is quite possible it will increase the run time too much.
+#
+#
+##satcb_force_baseline_rebuild: false
+
+
+#
+#----
+# The following variable is used to automatically generate a
+# meaningful description when publishing / promoting a new
+# 'BASELINE'.
+#
+#
+#----
+# Use only values defined in 'allowed_build_frequency'
+#
+# i.e. 'yearly' / 'quarterly' / 'monthy' / 'weekly' / 'daily'
+#
+#
+# Here the default value is also set ...
+#
+#
+satcb_build_frequency:   "monthly"
+
+
+#
+#----
+# The build purpose should be a VERY short (i.e. 1 word) summary description
+# of the reason for the CV/CCV to be published/built.
+#
+# the comment variable is a OPTIONAL longer (but still short) description. It
+# is usually not needed.
+#
+#
+satcb_build_purpose:   "BASELINE"
+satcb_build_comment:   ""
+
+
+#
+#----
+# If the following boolean is set to false then the tasks to remove old
+# versions of CCV and CV will not be done.
+#
+# Normally there is no need to modify this variable as it is only in the tasks
+# for PROMOTING CV and CCV this is used. In all other calls to the ansible role the 
+# removal flag is explicitly set to 'false'.
+#                 ----------
+#
+# e.g.
+#
+# --extra-vars='{ "satcb_remove_old_cv_ccv": true, ... }'
+#
+#
+satcb_remove_old_cv_ccv: false
+
+
+#
+#----
+# When checking for a Satellite task (such as 'publishing a CV') to finish
+# the following 2 variables are used to determine:-
+#
+#   a) the delay (in seconds) betweenn checking if the task has finished
+#
+#   b) the number of times re-check the status.
+#
+# 
+# NOTE: The smaller the 'delay' the more *chatty* the _check_task.yaml
+#       sub-task will be. If you use a larger number then the overall
+#       run-time of the playbook is increased. You have to reach a balance
+#       between how often to wait between checking the task and the time
+#       taken to run the playbook.
+#
+#
+satcb_wait_task_retries:  90
+satcb_wait_task_delay:  10
+
+
+#
+#----
+# Define the number of seconds a API (URL) call can wait to be accepted/
+# started before it has to timeout.
+#
+# This prevents the API call sitting forever waiting for the Satellite
+# Server to accept the URL call.
+#
+satcb_url_timeout:  180
+
+
+#
+#----
+# For API calls should we use:  http or https
+#
+# Default is: https
+#
+#
+satcb_http_protocol: "https"
+
+
+#
+#----
+# Under normal operation we do *not* need to re-promote content to 
+# a Lifecycle Environment.
+#
+# This parameter should remain 'false' - which is the default value.
+#
+# If this is set to 'true' then it will increase the runtime of the 
+# playbook as each CCV is re-promoted.
+#
+#
+# i.e If the playbook run requsted to promote to: 'uat' and the 
+#     Lifecycle Path looked like this:-
+#
+#       dev -> test -> uat -> preprod -> prod
+#
+#
+#     then all included CCV would be re-promoted to: 'dev' and 'test'
+#     before promoting to: 'uat'.
+#
+#
+# I can't really think of a use-case for this, but it is included
+# to completness.
+#
+#
+##satcb_force_promotion: false

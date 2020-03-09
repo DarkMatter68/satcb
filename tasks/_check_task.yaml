@@ -1,0 +1,130 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  _check_tasks.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  25/02/2020
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# An internal collection of tasks used to check the status of a Satellite task
+# initiated by a API call.
+#
+#
+# Used in:-
+#
+#   _publish_content.yaml
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+# 
+#   - uri:
+#       url: <some API call>
+#       .
+#       .
+#     resgiter: _api_call_info
+#
+#   - include_tasks: _check_task.yaml
+#     vars:
+#       _satcb_task_id: "{{ _api_call_info.json.id }}"
+#
+#
+# VARIABLE DEPENDENCIES
+#-----------------------------------------------------------------------------
+#
+#  _satcb_task_id.........: ID number of the task in the Satellite
+#
+#  _satcb_task_description: Summary of the API call task
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _check_task"
+
+
+- name: "{{ _subtask_name_prefix }}  -  define task queries"
+  set_fact:
+    _query_task_get_state: "results[?id=='{{ _satcb_task_id }}'].state | [0]"
+    _query_task_get_result: "results[?id=='{{ _satcb_task_id }}'].result | [0]"
+
+
+- debug:
+    msg: "Task ID to check - [{{ _satcb_task_id }}]"
+  when: _DEBUG_ME == true
+
+
+#
+#----
+# Check the task
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  {{ _satcb_task_description }}. Task id is {{ _satcb_task_id }}, will re-check in {{ satcb_wait_task_delay }} seconds ..."
+  uri:
+    url: "{{ _satcb_url_foreman_tasks_api }}/tasks?search=utf8=%E2%9C%93&search=id+%3D+{{ _satcb_task_id }}"
+    method: GET
+    body_format: json
+    status_code: 200
+    user: "{{ satcb_user }}"
+    password: "{{ satcb_password }}"
+    validate_certs: no
+    force_basic_auth: yes
+  register: _task_output
+  #
+  #----
+  # Repeat until task status is successful or not
+  #
+  # Send a GET every 'satcb_wait_task_delay' seconds and retry for
+  # 'satcb_wait_task_retries'.
+  #
+  # Task will be failed if field "failed" is set to true
+  #
+  #
+  until: _task_output.json | json_query(_query_task_get_state) == "stopped"
+  retries: "{{ satcb_wait_task_retries }}"
+  delay: "{{ satcb_wait_task_delay }}"
+  failed_when: _task_output.json | json_query(_query_task_get_result) == "failed"
+
+
+
+- name: "{{ _subtask_name_prefix }}  -  Get task state and result"
+  set_fact:
+    _task_state: "{{ _task_output.json|json_query(_query_task_get_state) }}"
+    _task_result: "{{ _task_output.json|json_query(_query_task_get_result) }}"
+
+
+- debug:
+    msg: "Task ID...:  {{ _satcb_task_id }}  -  Status: {{ _task_state }}  -  result: {{ _task_result }}"
+
+
+- debug:
+    msg: "URL Status [{{ _task_output.status }}]"
+  when: _DEBUG_ME == true
+
+
+#
+#----
+# Update the: _task_info list with the status of the current task
+#
+# This will be shown at the end of the playbook run *AND* used in the Email
+# report.
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  Create new task record for [{{ _content_name }}]"
+  set_fact:
+    _task_info: "{{ _task_info | default([]) + [{'task_type': _task_type | default('unknown'), 'content_name': _content_name, 'task_id': _satcb_task_id, 'task_state': _task_state, 'task_result': _task_result, 'check_task_status': _task_output.status, 'task_description': _satcb_task_description}] }}"
+
+
+- debug:
+    var: _task_info
+  when: _DEBUG_ME == true
+
+
+- debug:
+    var: _task_output
+  when: _DEBUG_ME == true

@@ -1,0 +1,101 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  mail_report.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  11/11/2019
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# Email a 'log' of the playbook run.
+#
+#
+# It is primarily called as a 'handler' from with-in a task using:-
+#
+#   notify: mail_report
+#
+#
+# See: tasks/main.yaml for handler definition.
+#
+# 
+# The variables used in the 'mail' module are in the configuration file:-
+#
+#   vars/satcb_config-default.yaml
+#
+#   or
+#
+#   vars/satcb_cofig-<hostname>.yaml
+#
+#   or
+#
+#   'custom' filename defined by the variable: satcb_config_filename
+#
+#
+#
+#-----------------------------------------------------------------------------
+#
+#
+
+
+- block:
+  #
+  #----
+  # Define the 'end date/time' of the playbook
+  #
+  # We need to get the date/time from the system because
+  # the value of fact: 'ansible_date_time' is determined
+  # when the playbook is started. It is not a dynamic 
+  # value.
+  #
+  #
+  - name: "HANDLER  -  MAIL REPORT  -  Get my hostnme"
+    shell: "/usr/bin/hostname --fqdn"
+    register: _system_hostname
+
+
+  - name: "HANDLER  -  MAIL REPORT  -  Get playbook END TIME from system"
+    shell: "date +'%Y-%m-%d %H:%M:%S'"
+    register: _system_end_time
+
+
+  - name: "HANDLER  -  MAIL REPORT  -  Add TimeZone to playbook END TIME"
+    set_fact:
+      _playbook_end_time: "{{ _system_end_time.stdout }} [{{ ansible_date_time.tz }}]"  
+
+
+  - name: "HANDLER  -  MAIL REPORT  -  Check if there were NO tasks run on the Satellite server"
+    set_fact:
+      _PLAYBOOK_STATUS: "NO ACTION"
+    when: (_task_info is not defined) or (_task_info | length == 0)
+
+
+  - name: "HANDLER  -  MAIL REPORT  -  Build Email SUBJECT"
+    set_fact:
+      satcb_email_subject: "{{ _PLAYBOOK_STATUS }} - {{ _email_subject if (satcb_promote_ccv_only | bool) == false else '' }}{{ ' - ' if (satcb_promote_ccv_only | bool) == false else '' }}({{ satcb_hostname }}) Satellite Content Baseline {{ 'PUBLISHED' if (satcb_promote_ccv_only | bool) == false else '' }}{{ ' and ' if (satcb_promote_ccv_only | bool == false) else '' }} PROMOTED to Lifecycle: {{ satcb_promote_ccv_to_env if (satcb_promote_ccv_to_env | length > 0) else 'LIBRARY' }}"
+
+
+  - name: "HANDLER  -  MAIL REPORT  -  Convert mail to array into comma separated string"
+    set_fact:
+      _email_to_comma_separated: "{{ satcb_email_to | join(',') }}"
+
+  - debug:
+      var: _email_subject
+    when: _DEBUG_ME == true
+
+
+  - name: "HANDLER  -  MAIL REPORT  -  Email the report to [{{ satcb_email_to | join(',') }}]"
+    mail:
+      host:     "{{ satcb_email_host }}"
+      port:     "{{ satcb_email_port }}"
+      from:     "{{ satcb_email_from }}"
+      to:       "{{ satcb_email_to }}"
+      cc:       "{{ satcb_email_cc }}"
+      bcc:      "{{ satcb_email_bcc }}"
+      subject:  "{{ satcb_email_subject }}"
+      subtype:  "html"
+      body:     '{{ lookup("template","../templates/email_body.j2") }}'
+  when: (satcb_email_send or _PLAYBOOK_STATUS != "SUCCESS") and (satcb_email_to | length >= 1)

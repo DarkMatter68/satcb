@@ -1,0 +1,174 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  step-03_publish_cv.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  02/12/2019
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# These tasks will:-
+#
+# a) Builds a definitive list of CV to publish
+#
+# b) Publish all the CV to a new version
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include: step-03_publish_cv.yaml
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _task_name_prefix: "STEP 03  -  CONTENT VIEW PUBLISH"
+
+
+#
+#----
+# BUILD DEFINITIVE LIST OF CV's & CCV's TO PUBLISH/PROMOTE
+#
+#
+
+#
+#---
+# Prepare some list variables
+#
+#
+- set_fact:
+    _temp_list: []
+    _temp_include_list: []
+    _publish_cv_list: []
+
+
+
+#
+#----
+# NOTE: In _ccv_cv_list the KEY is the name of the CCV and the 'value' is a
+#       list of CV in that CCV.
+#
+#
+- name: "{{ _task_name_prefix }}  -  ADD CVs TO TEMPORARY LIST"
+  set_fact:
+    _temp_list: "{{ _temp_list + item.value }}"
+  with_dict: "{{ _ccv_cv_list }}"
+      
+
+- debug: 
+    var: _temp_list
+  when: _DEBUG_ME == true
+
+
+- name: "{{ _task_name_prefix }}  -  REMOVE DUPLICATE ENTRIES FROM CV LIST"
+  set_fact: 
+    _temp_list: "{{ _temp_list | unique }}"
+
+
+- debug: 
+    var: _temp_list
+  when: _DEBUG_ME == true
+
+
+- block:
+  - name: "{{ _task_name_prefix }}  -  INCLUDE CVs TO BE FROM INCLUDE LIST"
+    set_fact:
+      _temp_include_list: "{{ _temp_include_list + [item] if item in satcb_include_list else _temp_include_list }}"
+    with_list: "{{ _temp_list }}"
+
+
+  - debug:
+      var: _temp_include_list
+
+
+  #
+  #----
+  # Once we get our list of CV's to be included we need to make sure this is
+  # put back to into the temporary list so the 'exclude' list can be worked
+  # on.
+  #
+  #
+  - set_fact:
+      _temp_list: "{{ _temp_include_list | list }}"
+
+  when: (satcb_include_list is defined) and (satcb_include_list | length > 0)
+
+
+#
+#----
+# Now we create the FINAL list of CV to publish by not adding any CV in the 
+# EXCLUDE list to the final list of CV:-
+#
+#   _publish_cv_list
+#
+#
+- name: "{{ _task_name_prefix }}  -  REMOVE CVs TO BE EXCLUDED"
+  set_fact:
+    _publish_cv_list: "{{ _publish_cv_list + [item] if item not in satcb_exclude_list else _publish_cv_list }}"
+  with_list: "{{ _temp_list }}"
+  when: satcb_exclude_list is defined
+
+
+- debug: 
+    var: _publish_cv_list
+
+
+#
+#----
+# Define the task type.
+#
+# This is used in sub-task: _publish_content.yaml to record the task in
+# dictionary:-
+#
+#   _task_info
+#
+#
+- name: "{{ _task_name_prefix }}  -  SET TASK TYPE"
+  set_fact:
+    _task_type: "PUBLISH CV"
+
+
+#
+#----
+# PUBLISH new versions all the CV's in the list: _publish_cv_list
+#
+# Using tasks in: _publish_content.yaml
+#
+#
+- block:
+  - name: "{{ _task_name_prefix }}  -  PUBLISH THE CVs ..."
+    include_tasks:
+      _publish_content.yaml
+    loop: "{{ _publish_cv_list }}"
+    loop_control:
+      loop_var: _content_name
+    when:
+      - _publish_cv_list is defined
+      - _publish_cv_list|length > 0
+      - satcb_promote_ccv_only  | bool == false
+    register: _sat_publish_cv_result
+  rescue:
+    - set_fact:
+        _PLAYBOOK_STATUS: "ERROR"
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  -  There was a error publishing new version of CV: {{ sat_cv_name }}' ] }}"
+      changed_when: true
+      failed_when: false
+      notify: mail_report
+  when: _PLAYBOOK_STATUS == "SUCCESS"
+  tags:
+    - publish_cv
+
+
+
+- debug: 
+    var: _sat_publish_cv_result
+  when: _DEBUG_ME == true
+
+
+- debug:
+    var: _task_info

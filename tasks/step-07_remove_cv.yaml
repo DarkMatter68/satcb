@@ -1,0 +1,107 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  step-07_remove_cv.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  28/02/2019
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# These tasks will:-
+#
+# Promote CCV's up-to a specific lifecycle
+#
+#
+# i.e.  If the Lifecycle Environment Path consists of the following:-
+#
+#         pilot -> low -> average -> high -> critical
+#
+#
+#       and we request to promote: 'average' then the tasks will promote to 
+#       *ALL* the environments: "pilot", "low" and also "average".
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include: step-06_remove_ccv.yaml
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _task_name_prefix: "STEP 07  -  CONTENT VIEW"
+
+
+#
+#----
+# Define the task type.
+#
+# This is used in sub-task: _remove_content.yaml to record the task in
+# dictionary:-
+#
+#   _task_info
+#
+#
+- name: "{{ _task_name_prefix }}  -  SET TASK TYPE"
+  set_fact:
+    _task_type: "REMOVE OLD CV VERSIONS"
+
+
+#
+#----
+# REMOVE *OLD* CV's
+#
+# NOTE #1:  This is *only* done when PROMOTING so:-
+#
+#           a)  satcb_promote_ccv_only == TRUE
+#
+#               or,
+#
+#
+#           b)  satcb_promote_ccv_to_env is defined
+#
+#               and
+#
+#
+#           c)  satcb_remove_old_cv_ccv == TRUE
+#
+#
+# The removal of old CV's is only done when promoting
+# to prevent situations when a 'old' CV version is still
+# associated with a lifecycle environment.
+#
+#
+- block:
+  - name: "{{ _task_name_prefix }} -  REMOVE OLD CVs"
+    include_tasks:
+      _remove_content.yaml
+    loop: "{{ _publish_cv_list }}"
+    loop_control:
+      loop_var: _content_name
+    when:
+      - satcb_remove_old_cv_ccv == true
+      - _publish_cv_list is defined
+      - _publish_cv_list|length > 0
+      - satcb_promote_ccv_only  | bool == true or satcb_promote_ccv_to_env is defined
+      - satcb_promote_ccv_to_env | length > 0
+    register: _sat_remove_old_cv_result
+  rescue:
+    - set_fact:
+        _PLAYBOOK_STATUS: "ERROR"
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }} - There was a error removing old versions of CV: {{ _content_name }}' ] }}"
+      changed_when: true
+      failed_when: false
+      notify: mail_report
+  when: _PLAYBOOK_STATUS == "SUCCESS"
+  tags:
+    - remove_ccv
+
+
+- debug:
+    var: _sat_remove_old_cv_result
+  when: _DEBUG_ME == true

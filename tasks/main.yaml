@@ -1,0 +1,170 @@
+---
+#
+#------------------------------------------------------------------------------
+# Playbook...:   satellite6-content_baseline
+#
+# Author.....: Andy Thom (andrew.thom@juliusbaer.com)
+#
+# Date.......: 01/12/2019
+#
+#
+# Description:  
+#------------------------------------------------------------------------------
+#
+# This playbook will publish new versions of CV and CCV's. And promote CCV's to
+# designated lifecycle.
+#
+# As the playbook relies on API calls to the Satellite Server can be run on
+# any host, as long as a compatible version of ansible-engine is installed.
+#
+# Also, because it used API calls and the username / password are stored in the
+# playbook configuration there is *NO* special priviledges required to run this
+# playbook.
+#
+#
+# It uses the role: satellite6-content_views from Ansible Galaxy:-
+#
+#   https://galaxy.ansible.com/ogerbron/satellite6-content_views
+#
+#
+# NOTE #1:  The above role has been modified to take into account Organization's
+#           not using a ID value of '1'. In the original role from Ansible
+#           Galaxy this is hard-coded.
+#
+#           There are also a couple of other 'cosmetic' changes
+#
+#
+# NOTE #2:  In a future version this playbook will combine the above role and
+#           then the logic will be incorporated into a NEW ansible role.
+#
+#           It is important to make the playbook non dependant on the role from
+#           Ansible Galaxy because of the changes currently make (locally) to 
+#           the role.
+#
+#           It will also allow me to increase the logging/monitoring capability
+#           and (hopefully) make efficiency improvements on the original role
+#           code.
+#
+# 
+#
+# PRE-REQUISITES:
+#------------------------------------------------------------------------------
+# 
+# RPM package:  python-dns      - required in 'load_config' to lookup the
+#                                 satellite hostname to make sure it is a valid
+#                                 DNS entry.
+#
+#
+#               ansible-engine  - well, this should be obvious ... ;)
+#
+#------------------------------------------------------------------------------
+#
+#
+- hosts: localhost
+  any_errors_fatal: true
+  connection: local
+  become: false
+
+
+  tasks:
+    - include: step-00_load-config.yaml
+      tags:
+        - load_config
+        - load_config_email
+
+
+    - include: step-01_pre-checks.yaml
+      when: _PLAYBOOK_STATUS != "ERROR"
+      tags:
+        - precheck
+        - precheck_email
+
+
+    - include: step-02_setup.yaml
+      when: _PLAYBOOK_STATUS != "ERROR"
+      tags:
+        - setup
+
+
+    #
+    #----
+    # Now do the real job of publish / promoting ...
+    #
+    #
+    # See the 'tasks' folder for each include file.
+    #
+    #
+    # NOTE #1:
+    # =======
+    # The block will also ONLY be executed if th CCV/CV list has something
+    # in it to publish/promote.
+    #
+    #
+    # NOTE #2:
+    # =======
+    # This block will always notify the mail_report handler to ensure we get
+    # a report even if there is a error.
+    #
+    #
+    # NOTE #3:
+    # =======
+    # In the 'when' at the bottom we do not check the _PLAYBOOK_ERROR value
+    # because that would prevent the: always -> notify -> mail_report from
+    # running which would mean no Email report would be sent.
+    #
+    #
+    - block:
+      - include: step-03_publish_cv.yaml
+        when: _PLAYBOOK_STATUS != "ERROR"
+        tags:
+          - publish_cv
+
+
+      - include: step-04_publish_ccv.yaml
+        when: _PLAYBOOK_STATUS != "ERROR"
+        tags:
+          - publish_ccv
+
+
+      - include: step-05_promote_ccv.yaml
+        when: _PLAYBOOK_STATUS != "ERROR"
+        tags:
+          - promote_ccv
+
+
+      - include: step-06_remove_ccv.yaml
+        when: _PLAYBOOK_STATUS != "ERROR"
+        tags:
+          - remove_ccv
+
+
+      - include: step-07_remove_cv.yaml
+        when: _PLAYBOOK_STATUS != "ERROR"
+        tags:
+          - remove_cv
+
+
+      rescue:
+        - set_fact:
+            _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ 'There was a general error running the playbook. Please see the ansible log / system log for details.' ] }}"
+            _PLAYBOOK_STATUS: "ERROR"
+
+
+      always:
+        - debug:
+            msg: "Playbook finished ..."
+          notify:
+            - mail_report
+          changed_when: true
+
+      when:
+        - _ccv_cv_list is defined and _ccv_cv_list.keys()|length > 0
+
+
+    - debug:
+        var: _task_info
+
+
+  handlers:
+    - name: mail_report
+      import_tasks: mail_report.yaml

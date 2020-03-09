@@ -1,0 +1,136 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  _remove_content.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  28/02/2020
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# An internal collection of tasks used to remove versions of CV / CCV
+#
+#
+# Used in:-
+#
+#   step-06_remove_ccv.yaml
+#   step-07_remove_cv.yaml
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include_tasks: _remove_content.yaml
+#
+#
+# VARIABLE DEPENDENCIES
+#-----------------------------------------------------------------------------
+#
+# satcb_remove_old_cv_ccv:  Parameter used to determine if old CV / CCV should
+#                           be removed. Default: FALSE
+#
+#
+# _content_name..........:  Name of the CV / CCV to check for 'old'
+#                           (removable) versions.
+#
+#
+# _temp_task_type........:  Used to add the lifecycle environment name to the
+#                           TASK TYPE.
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _remove_content"
+
+
+- block:
+  #
+  #----
+  # Define variable:  _content_id
+  #
+  #
+  - name: "{{ _subtask_name_prefix }}  -  Get content ID for [{{ _content_name }}]"
+    include_tasks: _get_content_id.yaml
+
+
+  - set_fact:
+      _subtask_name_prefix: "SUB-TASK  -  _remove_content"
+
+
+  #
+  #----
+  # Define variable: _content_information
+  #
+  #
+  - name: "{{ _subtask_name_prefix }}  -  Get content information for [{{ _content_name }}]"
+    include_tasks:  _get_content_information.yaml
+
+
+  - set_fact:
+      _subtask_name_prefix: "SUB-TASK  -  _remove_content"
+
+
+  #
+  #----
+  # Get the list of content versions
+  #
+  #
+  - name: "{{ _subtask_name_prefix }}  -  Get the list content versions"
+    set_fact:
+      _satcb_cv_version_list: "{{ _content_information.json | json_query(_query_cv_version_list) | sort(attribute='published') }}"
+    vars:
+      _query_cv_version_list: "versions[*].{id: id, version: version, environment_ids: environment_ids, published: published}" 
+
+
+  - debug:
+      var: _satcb_cv_version_list
+
+
+  #
+  #----
+  # Get the number of content versions
+  #
+  #
+  - name: "{{ _subtask_name_prefix }}  -  Get the number of content versions"
+    set_fact:
+      _satcb_cv_version_number: "{{ _satcb_cv_version_list | json_query('[*].version') | length | int }}"
+
+
+  - debug:
+      var: _satcb_cv_version_number
+
+
+  - debug:
+      var: satcb_keep_old_content_versions 
+
+
+  #
+  #----
+  # Determine the number of OLD versions to remove
+  #
+  #
+  - name: "{{ _subtask_name_prefix }}  -  Determine number of OLD versions to delete for [{{ _content_name }}]"
+    set_fact:
+      _satcb_remove_sequence_end: "{{ _satcb_cv_version_number | int - satcb_keep_old_content_versions | int }}"
+
+
+  - debug:
+      var: _satcb_remove_sequence_end
+
+      
+  #
+  #----
+  # Remove old content versions
+  #
+  #
+  - name: "{{ _subtask_name_prefix }}  -  Remove [{{ _satcb_remove_sequence_end }}] OLD versions of [{{ _content_name }}]"
+    include_tasks: _remove_content_version.yaml
+    with_items: "{{ _satcb_cv_version_list[0:_satcb_remove_sequence_end|int] }}"
+    when:
+      - _satcb_remove_sequence_end | int > 0
+      - _satcb_cv_version_number|int > satcb_keep_old_content_versions | int
+  when: satcb_remove_old_cv_ccv

@@ -1,0 +1,112 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  _publish_content.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  25/02/2020
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# An internal collection of tasks used to publish a new version of CV / CCV
+# content.
+#
+#
+# Used in:-
+#
+#   step-02_publish_cv.yaml
+#   step-03_publish_ccv.yaml
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include_tasks: _publish_content.yaml
+#
+#
+# VARIABLE DEPENDENCIES
+#-----------------------------------------------------------------------------
+#
+#  _content_name.......:  name of the specific CV / CCV to publish
+#
+#  _publish_description:  Standard text each CV/CCV gets to describe the 
+#                         baseline.
+#-----------------------------------------------------------------------------
+#
+#
+
+
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _publish_content"
+
+
+#
+#----
+# Define variable:  _content_id
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  Get content ID for [{{ _content_name }}]"
+  include_tasks: _get_content_id.yaml
+
+
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _publish_content"
+
+
+#
+#----
+# Define variable: _content_information
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  Get content information for [{{ _content_name }}]"
+  include_tasks:  _get_content_information.yaml
+
+
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _publish_content"
+
+
+#
+#----
+# COMPOSITE CONTENT VIEWS ONLY (CCV)...
+#
+#
+# Apply the latest CV versions to the CCV
+#
+#
+- name: "{{ _subtask_name_prefix }}  -  Update CCV with latest CV versions [{{ _content_name }}]"
+  include: _update_composite_view_cv_versions.yaml
+  when: (_content_information.json.composite is defined and _content_information.json.composite)
+
+
+
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _publish_content"
+    _satcb_task_description: "Publish{{ ' Composite' if _content_information.json.composite is defined and _content_information.json.composite else '' }} Content View: {{ _content_information.json.name }} (current: {{ _content_information.json.latest_version }}) NEW VERSION: {{ _content_information.json.next_version }}"
+
+
+- name: "{{ _subtask_name_prefix }}  -  {{ _satcb_task_description }}"
+  uri:
+    url: "{{ _satcb_url_katello_api }}/v2/content_views/{{ _content_id }}/publish?organization_id={{ _organization_id }}"
+    method: POST
+    body:
+      id: "{{ _content_id }}"
+      description: "{{ _publish_description }}"
+    body_format: json
+    status_code: 202
+    user: "{{ satcb_user }}"
+    password: "{{ satcb_password }}"
+    validate_certs: no
+    force_basic_auth: yes
+    timeout: "{{ satcb_url_timeout }}"
+  register: _content_view_publish
+
+
+- name: "{{ _subtask_name_prefix }}  -  Check API call task [{{ _content_view_publish.json.id }}]"
+  include: _check_task.yaml
+  vars:
+    _satcb_task_id: "{{ _content_view_publish.json.id }}"
+  when: _content_view_publish.json.id is defined

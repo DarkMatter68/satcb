@@ -1,0 +1,12 @@
+---
+#
+#----
+# _task_info is a list of records used to hold a summary of each action 
+# performed on a CV / CCV
+#
+# This information will be used in the Email report.
+#
+# Is is populated in sub-task: _check_task.yaml
+#
+#
+_task_info: []

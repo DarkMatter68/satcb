@@ -1,0 +1,395 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  step-02_setup.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  02/12/2019
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# These tasks will:-
+#
+# a) determine the organization ID 
+#
+# b) If promoting the CV/CCV to a lifecycle then determine the lifecycle ID
+#
+# c) BUild an initial list of CCV and the associated CV.
+#
+#
+# NOTE:
+# ====
+# Tasks will only be executed IF the preceeding task(s) was successful. There
+# is no point prolonging the 'agony' :)
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include: step-02_setup.yaml
+#
+#-----------------------------------------------------------------------------
+#
+# TECHNICAL NOTE:
+# ==============
+# If you are a particulary sad individual ('joking' ;-) ) then you may be 
+# wondering about the following 2 lines in each 'rescue' section:-
+#
+#   changed_when: true
+#   failed_when:  false
+#
+# Of course you are probably a 'well-balanced' person and couldn't give a #%&$
+# about it! In which case don't bother reading this ...
+#
+# 
+# A HANDLER will *only* be called/notified when a task has a status of CHANGED
+# that is why it is deliberately set to TRUE.
+#
+# Similarly, a HANDLER will *NOT* be called/notified if a task has failed, which is why
+# it is set to FALSE just before the 'notify'.
+#
+# It is becaus of this we can 'cleanly' exit the playbook and *still* send a 
+# Email report whith-out continuing with the rest of the playbook.
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _task_name_prefix: "STEP 02  -  SETUP"
+
+
+#
+#----
+# Initialize _task_info list
+#
+#
+- name: "{{ _task_name_prefix }}  -  Initialize _task_info"
+  set_fact:
+    _task_info: []
+
+
+- block:
+  - name: "{{ _task_name_prefix }}  -  Get organizations list for satellite [{{ satcb_hostname }}]"
+    uri:
+##      url: "http://{{ satcb_hostname }}/katello/api/organizations"
+      url: "{{ _satcb_url_katello_api }}/organizations"
+      method: GET
+      user: "{{ satcb_user }}"
+      password: "{{ satcb_password }}"
+      validate_certs: no
+      force_basic_auth: yes
+    no_log: true
+    register: _organization_list
+  rescue:
+    - set_fact: 
+        _PLAYBOOK_STATUS: "ERROR"
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - There was an error getting the list of organizations for satellite: {{ satcb_hostname }} ' ] }}"
+      changed_when: true
+      failed_when: false
+      notify: mail_report
+  when: _PLAYBOOK_STATUS == "SUCCESS"
+  tags:
+    - setup
+
+
+- debug:
+    var: _organization_list
+  when: _DEBUG_ME
+  tags:
+    - setup
+
+
+- block:
+  - name: "{{ _task_name_prefix }}  -  Get organization ID for [{{ satcb_organization }}]"
+    set_fact:
+      _organization_id: "{{ _organization_list.json | json_query(_query_organization_id) }}"
+    vars:
+      _query_organization_id: "results[?name=='{{ satcb_organization }}'].id | [0]"
+    failed_when: 
+      - _organization_list is not defined
+      - _organization_list | length == 0
+  rescue:
+    - set_fact: 
+        _PLAYBOOK_STATUS: "ERROR"
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - There was an error getting the organization ID for: {{ satcb_organization }} ' ] }}"
+      changed_when: true
+      failed_when: false
+      notify: mail_report
+  when: _PLAYBOOK_STATUS == "SUCCESS"
+  tags:
+    - setup
+
+
+- debug:
+    msg: "Organization ID for [{{ satcb_organization }}] is [{{ _organization_id }}]"
+  tags:
+    - setup
+
+
+- block:
+  - name: "{{ _task_name_prefix }}  -  Get lifecycle environments for organization [{{ satcb_organization }}]"
+    uri:
+##      url: "http://{{ satcb_hostname }}/katello/api/organizations/{{ _organization_id }}/environments"
+      url: "{{ _satcb_url_katello_api }}/organizations/{{ _organization_id }}/environments"
+      method: GET
+      user: "{{ satcb_user }}"
+      password: "{{ satcb_password }}"
+      validate_certs: no
+      force_basic_auth: yes
+    when:
+      - _organization_id is defined
+      - _organization_id > 0
+      - satcb_hostname is defined
+      - satcb_hostname | length > 0
+    no_log: true
+    register: _satellite_lifecycles
+  rescue:
+    - set_fact: 
+        _PLAYBOOK_STATUS: "ERROR"
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - There was an error getting the list of lifecycle for organization ID: {{ _satellite_lifecycles }} ' ] }}"
+      changed_when: true
+      failed_when: false
+      notify: mail_report
+  when: _PLAYBOOK_STATUS == "SUCCESS"
+  tags:
+    - setup
+
+
+- block:
+  - name: "{{ _task_name_prefix }}  -  Check if lifecycle to be used is valid [{{ satcb_promote_ccv_to_env if (satcb_promote_ccv_to_env is defined) and (satcb_promote_ccv_to_env | trim != '') else 'ENVIRONMENT NOT DEFINED' }}]"
+    set_fact:
+      lifecycle_id: "{{ _satellite_lifecycles.json | json_query(_query_lifecycle_id) }}"
+    vars:
+      _query_lifecycle_id: "results[?label=='{{ satcb_promote_ccv_to_env }}'].id | [0]"
+    when:
+      - satcb_promote_ccv_to_env is defined
+      - satcb_promote_ccv_to_env | trim != ''
+    no_log: true
+    failed_when: lifecycle_id | length == 0
+    register: _lifecycle_check
+  rescue:
+    - set_fact: 
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - The lifecycle: \"{{ satcb_promote_ccv_to_env }}\" does not appear to be valid.' ] }}"
+        _PLAYBOOK_STATUS: "ERROR"
+      changed_when: true
+      failed_when: false
+      notify: mail_report
+  when: _PLAYBOOK_STATUS == "SUCCESS"
+  tags:
+    - setup
+
+
+- debug:
+    msg: "LIFECYCLE CHECK:  -{{ _lifecycle_check }}-"
+  when:
+    - _DEBUG_ME == true
+    - _lifecycle_check is defined
+
+
+
+- block:
+  - name: "{{ _task_name_prefix }}  -  Determine LIBRARY ID value for Organization: [{{ satcb_organization }}]"
+    set_fact:
+      _library_id: "{{ _satellite_lifecycles.json | json_query(_query_library_id) }}"
+    vars:
+      _query_library_id: "results[?label=='Library'].id | [0]"
+    when:
+      - _satellite_lifecycles is defined
+      - _organization_id is defined
+      - _organization_id > 0
+  rescue:
+    - set_fact: 
+        _PLAYBOOK_STATUS: "ERROR"
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - There was an error determining the ID for LIBRARY Lifecycle Environment' ] }}"
+      changed_when: true
+      failed_when: false
+      notify: mail_report
+  when: _PLAYBOOK_STATUS == "SUCCESS"
+  tags:
+    - setup
+
+
+
+- debug:
+    msg: "LIBRARY ID CHECK:  [{{ _library_id }}]"
+  when:
+    - _library_id is defined
+
+
+
+- name: "{{ _task_name_prefix }}  -  Determine MINIMUM number of CV/CCV versions to keep. Playbook minimum [{{ _minimum_old_content_versions }}], requested number [{{ satcb_keep_old_content_versions }}]"
+  set_fact:
+    satcb_keep_old_content_versions: "{{ _minimum_old_content_versions | int + 0 if satcb_keep_old_content_versions < _minimum_old_content_versions else satcb_keep_old_content_versions | int + 0 }}"
+  tags:
+    - setup
+
+
+#
+#----
+# Here the OPTIONAL description text for CV / CCV is modified to include text
+# from the 'comment' variable.
+#
+# If there is *no* comment to add then it is ignored.
+#
+#
+- name: "{{ _task_name_prefix }}  -  Check for comment text for publish/promote description"
+  set_fact:
+    _publish_description: "{{ _publish_description }} ({{ satcb_build_comment }})"
+  when: satcb_build_comment | length > 0
+  tags:
+    - setup
+
+
+#
+#----
+# By default, the 'promotion' description should be setup the same as the
+# 'publish' description.
+#
+#
+- name: "{{ _task_name_prefix }}  -  Define PROMOTE description"
+  set_fact:
+    _promote_description: "{{ _publish_description }}"
+  tags:
+    - setup
+
+
+#
+#----
+# Create a list of *ALL* the CV & CCV's available.
+#
+#
+- block:
+  - name: "{{ _task_name_prefix }}  -  GET CONTENT VIEW LIST FROM SATELLITE SERVER [{{ satcb_hostname }}]"
+    uri:
+##      url: "http://{{ satcb_hostname }}/katello/api/content_views"
+      url: "{{ _satcb_url_katello_api }}/content_views"
+      method: GET
+      user: "{{ satcb_user }}"
+      password: "{{ satcb_password }}"
+      validate_certs: no
+      force_basic_auth: yes
+##    no_log: true
+    register: _available_cv_ccv_list
+
+  - debug:
+      var: _available_cv_ccv_list
+    when: _DEBUG_ME == true
+
+  rescue:
+    - set_fact: 
+        _PLAYBOOK_STATUS: "ERROR"
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - Could not get a list of the available CV/CCV.' ] }}"
+      changed_when: true
+      failed_when: false
+      notify: mail_report
+  when: _PLAYBOOK_STATUS == "SUCCESS"
+  tags:
+    - setup
+
+#
+#----
+# Create a dictionary object where the 'key' is the CCV name and the 'value'
+# is a list of the CV's.
+#
+#
+# This is a 2-step process:-
+#
+#   1) Build the dictionary with all the CCV's and a *empty* list
+#
+#   2) Add each CV to the appropriate CCV 'key'
+#
+#
+# CV's that do *NOT* belong to a CCV will not be used.
+#
+# (Why would you not have a CV in a CCV ... ? :) )
+#
+#
+#
+# FUTURE IMPROVEMENT [note to self ;-) ]:-
+# ======================================
+# A better solution is to write a filter plugin using python in a 'filters'
+# sub-folder. 
+#
+# Filter-plugin Reference:-
+#
+#   https://docs.ansible.com/ansible/latest/dev_guide/developing_plugins.html#filter-plugins
+#
+#
+# Example:-
+#
+#   https://github.com/ansible/ansible/blob/devel/lib/ansible/plugins/filter/urlsplit.py
+#
+#
+# Then just call it in a variable like
+#
+# Set_fact:
+#   _ccv_cv_list: “{{ _available_cv_ccv_list.json.results | convert_to_cv_ccv() }}”
+#                                                           ^^^^^^^^^^^^^^^^^^^
+#
+#
+- block:
+  - name: "{{ _task_name_prefix }}  -  BUILD CCV DICTIONARY OBJECT"
+    no_log: true
+    set_fact:
+      _ccv_cv_list: "{{ _ccv_cv_list | combine( { item.0.name : [] } ) }}"
+    loop: "{{ _available_cv_ccv_list.json | json_query(composite_query) | subelements('content_view_components') }}"
+    vars:
+      composite_query:  "results[?composite]"
+  rescue:
+    - set_fact: 
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - There was an error creating the CCV DICTIONARY OBJECT' ] }}"
+        _PLAYBOOK_STATUS: "ERROR"
+      changed_when: true
+      failed_when: false
+      notify: mail_report
+  when: _PLAYBOOK_STATUS == "SUCCESS"
+  tags:
+    - setup
+
+
+- block:
+  - name: "{{ _task_name_prefix }}  -  ADD EACH CV IN A LIST FOR EACH CCV"
+    no_log: true
+    set_fact:
+      _ccv_cv_list: "{{ _ccv_cv_list | combine( { item.0.name : _ccv_cv_list[item.0.name] + [ item.1.content_view.name ] } ) }}"
+    loop: "{{ _available_cv_ccv_list.json | json_query(composite_query) | subelements('content_view_components') }}"
+    vars:
+      composite_query:  "results[?composite]"
+    when: _ccv_cv_list is defined and _ccv_cv_list.keys()|length > 0
+  rescue:
+    - set_fact: 
+        _PLAYBOOK_STATUS: "ERROR"
+        _PLAYBOOK_ERROR_MSG: "{{ _PLAYBOOK_ERROR_MSG + [ '{{ _task_name_prefix }}  - There was an error adding CV's to each CCV' ] }}"
+      changed_when: true
+      failed_when: false
+      notify: mail_report
+  when: _PLAYBOOK_STATUS == "SUCCESS"
+  tags:
+    - setup
+
+
+- debug: 
+    msg: "Initial CV/CCV list: {{ _ccv_cv_list }}"
+  when:
+    - _DEBUG_ME == true
+    - _ccv_cv_list is defined
+    - _ccv_cv_list | length > 0
+  tags:
+    - setup
+
+- debug: 
+    msg: "Exclude list of CV / CCV: {{ satcb_exclude_list }}"
+  when:
+    - _DEBUG_ME == true
+    - satcb_exclude_list is defined
+    - satcb_exclude_list | length > 0
+  tags:
+    - setup
+
+
+- debug:
+    msg: "{{ _task_name_prefix }}  - PLAYBOOK STATUS: <{{_PLAYBOOK_STATUS}}>"
+  when: _DEBUG_ME == true

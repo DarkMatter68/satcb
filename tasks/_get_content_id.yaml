@@ -1,0 +1,49 @@
+---
+#
+#-----------------------------------------------------------------------------
+# Tasks file.:  _get_content_id.yaml
+#
+# Author.....:  Andy Thom
+#
+# Date.......:  25/02/2020
+#
+#
+# Description:
+#-----------------------------------------------------------------------------
+#
+# An internal task used in various other task files to get the ID number of
+# content (CV or CCV).
+#
+#
+# Used in:-
+#
+#   _publish_content.yaml
+#
+#
+# To use this task collection put the following in the 
+# 'tasks:' section of the playbook:-
+#
+#   - include_tasks: _get_content_id.yaml
+#
+#
+# VARIABLE DEPENDENCIES
+#-----------------------------------------------------------------------------
+#
+#  _content_name.......:  name of the specific CV / CCV to publish
+#
+#-----------------------------------------------------------------------------
+#
+#
+- set_fact:
+    _subtask_name_prefix: "SUB-TASK  -  _get_content_id"
+
+
+- name: "{{ _subtask_name_prefix }}  -  Get content ID for: [{{ _content_name }}]"
+  set_fact:
+    _content_id: "{{ _available_cv_ccv_list.json | json_query(query_content_id) }}"
+  vars:
+    query_content_id: "results[?name=='{{ _content_name }}'].id | [0]"
+
+
+- debug:
+    var: _content_id
