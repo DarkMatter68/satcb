@@ -203,9 +203,7 @@ Here are the main variables needed (excluding API credentials)
 | Variable name                 | Required  | Default                                 | Choices       | TYPE                  | Comments                                                                                          |
 |-------------------------------|:---------:|:---------------------------------------:|:-------------:|:---------------------:|:-------------------------------------------------------------------------------------------------:|
 | `satcb_exclude_list_filename` | no        | exclude_list-default.yaml               |               | STRING                | Name of file containing the list of CV/CCV to *EXCLUDE*                                           |
-
 | `satcb_include_list_filename` | no        | include_list-default.yaml               |               | STRING                | Name of file containing the list of CV/CCV to *INCLUDE*                                           |
-
 | `satcb_config_filename`       | no        | satcb_config-default.yaml               |               | STRING                | Custom configuration file
  
 
