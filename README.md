@@ -37,6 +37,7 @@ However, I have since modified the playbook to incorporate the role as it became
 
 This is my first 'major' attempt at doing something _useful_ in Ansible. If you see something that does not follow good practice or could just be done better then please (politely :-) ) let me know.
 
+I am aware there some code cleanup is required ...  :-)
  
 
  
