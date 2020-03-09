@@ -1,9 +1,9 @@
 ---
 #
 #------------------------------------------------------------------------------
-# Playbook...:   satellite6-content_baseline
+# Playbook...: satcb
 #
-# Author.....: Andy Thom (andrew.thom@juliusbaer.com)
+# Author.....: Andy Thom
 #
 # Date.......: 01/12/2019
 #
@@ -20,31 +20,6 @@
 # Also, because it used API calls and the username / password are stored in the
 # playbook configuration there is *NO* special priviledges required to run this
 # playbook.
-#
-#
-# It uses the role: satellite6-content_views from Ansible Galaxy:-
-#
-#   https://galaxy.ansible.com/ogerbron/satellite6-content_views
-#
-#
-# NOTE #1:  The above role has been modified to take into account Organization's
-#           not using a ID value of '1'. In the original role from Ansible
-#           Galaxy this is hard-coded.
-#
-#           There are also a couple of other 'cosmetic' changes
-#
-#
-# NOTE #2:  In a future version this playbook will combine the above role and
-#           then the logic will be incorporated into a NEW ansible role.
-#
-#           It is important to make the playbook non dependant on the role from
-#           Ansible Galaxy because of the changes currently make (locally) to 
-#           the role.
-#
-#           It will also allow me to increase the logging/monitoring capability
-#           and (hopefully) make efficiency improvements on the original role
-#           code.
-#
 # 
 #
 # PRE-REQUISITES:
