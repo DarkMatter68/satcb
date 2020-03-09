@@ -135,7 +135,6 @@ Here are the main variables needed (excluding API credentials)
 | `satcb_remove_old_cv_ccv`     | no        | true                                    | true / false  | BOOLEAN               | If set to FALSE, then OLD versions will **NOT** be removed                                        |
 | `satcb_email_port`            | yes\*     | 25                                      |               | INTEGER               | Port to use for SMTP traffic                                                                      |
 | `satcb_email_host`            | yes\*     | localhost                               |               | STRING                | Name of the Email server (typically 'localhost')                                                  |
-
 | `satcb_email_subject`         | no\*      | <automatically generated>               |               | STRING                | Subject is automatically generated if not specified.                                              |
 
 \* required only if `satcb_email_send` is TRUE.
@@ -167,7 +166,7 @@ Here are the main variables needed (excluding API credentials)
 > Use the following process:-
 > 
 > 
->   ansible-vault encrypt_string '<password value>' --name satcb_password
+>   ansible-vault encrypt_string '\<password value\>' --name satcb_password
 > 
 > 
 > The above will result in something like the following which you can
@@ -189,7 +188,7 @@ Here are the main variables needed (excluding API credentials)
 > The vault password used should be stored in a (secure) file and
 > referenced when the playbook is run with the following option:-
 > 
->   --vault-password-file=<path to vault password file>
+>   --vault-password-file=\<path to vault password file\>
 > 
 > e.g.
 > 
@@ -211,7 +210,7 @@ Here are the main variables needed (excluding API credentials)
 
 > If there is a configuration file named:-
 > 
->*satcb_config-FQDN satellite hostname.yaml* then this will take precedence over the 'default' configuration file (*satcb_config-default.yaml*).
+>*satcb_config-\<FQDN satellite hostname\>.yaml* then this will take precedence over the 'default' configuration file (*satcb_config-default.yaml*).
  
 
 
@@ -224,6 +223,17 @@ Here are the main variables needed (excluding API credentials)
  
 
 \* required only if `satcb_email_send` is TRUE.
+
+
+>NOTE:
+>  This GIT repository provides 'example' files:-
+>
+>  satcb-config_example.yaml
+>  exclude_list-example.yaml
+>  include_list-example.yaml
+>
+>  You should copy these to 'default' files. Any future changes required to the config/include/exclude
+>  will be added to the 'example' files.
 
 
 ## Usage
@@ -258,7 +268,7 @@ PUBLISH new versions of all CV and CCV *not* in the exclude list on the DEVELOPM
 Satellite Server: *dsatellite6*.
 
  
-NOTE:
+**NOTE**:
 > The CV & CCV will only be promoted to **LIBRARY**. Also, the *exclude* / *include* list will be derived from the **default** files.
 
 ```bash
@@ -273,7 +283,7 @@ ansible-playbook ./satcb/tasks/main.yaml                              \
 PROMOTE **ALL** CCV to Lifecycle Environment: *average*
 
 
-NOTE:
+**NOTE**:
 > The *exclude* / *include* list will be derived from the **default** files.
 
 
@@ -344,9 +354,12 @@ ansible-playbook ./satcb/tasks/main.yaml                              \
 - Limit publishing of CV's to only those CV's which are in a CCV.
 - Limit promoting CCV's only up-to a specific Lifecycle environment.
  
-  i.e. ccv-my-test should only get promoted to LE: 'test' and not to
-
-       'dev' / 'uat' or 'prod'.
+  i.e. If the Lifecycle Path was:-
+  
+       dev -> test -> uat -> prod
+       
+       then CCV: ccv-my-test should only get promoted to LE: 'dev' and
+       'test' and not to:  'uat' or 'prod'.
 
 
 - Replace this playbook by creating an Ansible module .
