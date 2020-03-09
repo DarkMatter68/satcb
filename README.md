@@ -211,7 +211,7 @@ Here are the main variables needed (excluding API credentials)
 
 > If there is a configuration file named:-
 > 
->*satcb_config-<FQDN satellite hostname>.yaml* then this will take precedence over the 'default' configuration file (*satcb_config-default.yaml*).
+>*satcb_config-FQDN satellite hostname.yaml* then this will take precedence over the 'default' configuration file (*satcb_config-default.yaml*).
  
 
 
