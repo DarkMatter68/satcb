@@ -113,6 +113,53 @@
     _task_type: "PUBLISH CCV"
 
 
+
+
+#
+#----
+# 2020-03-11: Andy (Issue #1 - BEGIN)
+#
+# BEFORE WE CAN PUBLISH THE NEW CCV WE *MUST* REFRESH:-
+#
+#   _available_cv_ccv_list
+#
+#
+# Otherwise it will not contain the latest versions of
+# the CV's which we have just published.
+#
+# This variable was originally setup in:-
+#
+#   step-02_setup.yaml
+#
+#
+- name: "{{ _task_name_prefix }}  -  CLEAR CONTENT VIEW LIST"
+  set_fact:
+    _available_cv_ccv_list: []
+
+
+- block:
+  - name: "{{ _task_name_prefix }}  -  REFRESH CONTENT VIEW LIST FROM SATELLITE SERVER [{{ satcb_hostname }}]"
+    uri:
+      url: "{{ _satcb_url_katello_api }}/content_views"
+      method: GET
+      user: "{{ satcb_user }}"
+      password: "{{ satcb_password }}"
+      validate_certs: no
+      force_basic_auth: yes
+    no_log: true
+    register: _available_cv_ccv_list
+
+
+- debug:
+    var: _available_cv_ccv_list
+  when: _DEBUG_ME == true
+#
+#
+#----
+# 2020-03-11: Andy (Issue #1 - END)
+#
+
+
 #
 #----
 # PUBLISH new versions all the CCV's in the list: _publish_ccv_list
