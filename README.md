@@ -227,15 +227,15 @@ Here are the main variables needed (excluding API credentials)
 \* required only if `satcb_email_send` is TRUE.
 
 
->NOTE:
->  This GIT repository provides 'example' files:-
+*NOTE*:
+>  *This GIT repository provides 'example' files:-*
 >
->  satcb-config_example.yaml
->  exclude_list-example.yaml
->  include_list-example.yaml
+>  *satcb-config_example.yaml*
+>  *exclude_list-example.yaml*
+>  *include_list-example.yaml*
 >
->  You should copy these to 'default' files. Any future changes required to the config/include/exclude
->  will be added to the 'example' files.
+>  *You should copy these to 'default' files. Any future changes required to the config/include/exclude
+>  *will be added to the 'example' files.*
 
 
 ## Usage
