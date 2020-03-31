@@ -1,8 +1,6 @@
 # satcb:  SATellite server 6 - Content Baseline
 
-This playbook will publish new versions of CV and CCV's. And promote CCV's to
-
-designated lifecycle.
+This playbook will publish new versions of CV and CCV's. And promote CCV's to designated lifecycle.
 
  
 
@@ -18,7 +16,7 @@ The first (alpha) version of this playbook originally used the Ansible Role: sat
 
  
 
-However, I have since modified the playbook to incorporate the role as it became clear did not fullfil all my requirements.
+However, I have since modified the playbook to incorporate the role as it became clear it did not fullfil all my requirements.
 
  
 
@@ -37,7 +35,7 @@ However, I have since modified the playbook to incorporate the role as it became
 
 This is my first 'major' attempt at doing something _useful_ in Ansible. If you see something that does not follow good practice or could just be done better then please (politely :-) ) let me know.
 
-I am aware there some code cleanup is required ...  :-)
+I am aware there is some code cleanup is required ...  :-)
  
 
  
@@ -168,7 +166,7 @@ Here are the main variables needed (excluding API credentials)
 > Use the following process:-
 > 
 > 
->   ansible-vault encrypt_string '\<password value\>' --name satcb_password
+>   ansible-vault encrypt_string --vault-password-file <vault password file> '\<password value\>' --name satcb_password
 > 
 > 
 > The above will result in something like the following which you can
