@@ -142,4 +142,4 @@
 
   handlers:
     - name: mail_report
-      import_tasks: mail_report.yaml
+      include_tasks: mail_report.yaml
