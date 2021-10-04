@@ -46,7 +46,7 @@ I am aware there is some code cleanup is required ...  :-)
 
 + ansible-engine
 
-+ python-dns (used for performing a pre-check on the satellite server hostnmae)
++ python-dns (used for performing a pre-check on the satellite server hostname)
 
  
 
