@@ -265,7 +265,7 @@ optional parameters:-
 #### Example #1
 PUBLISH new versions of all CV and CCV *not* in the exclude list on the DEVELOPMENT
 
-Satellite Server: *dsatellite6*.
+Satellite Server: *my-satellite.acme.com*.
 
  
 **NOTE**:
@@ -298,7 +298,7 @@ ansible-playbook ./satcb/tasks/main.yaml                              \
  
 
 #### Example #3
-PUBLISH new CV **and** PROMOTE CCV to Lifecycle Environment: *pilot* for Satellite Server: *dsatellite6*
+PUBLISH new CV **and** PROMOTE CCV to Lifecycle Environment: *pilot* for Satellite Server: *my-satellite.acme.com*
 
  
 ```bash
