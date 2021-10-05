@@ -20,7 +20,7 @@ However, I have since modified the playbook to incorporate the role as it became
 
  
 
- 
+**COMPATIBILITY**: This playbook has been tested on Satellite v6.8.6 
  
 
 **NOTE**:
