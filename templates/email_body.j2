@@ -17,6 +17,7 @@ Description.....:   Creates a HTML Email body for sending a report of the
   Determine if there was a separate Ansible log file
 #}
 {% set _playbook_log = lookup('env', 'ANSIBLE_LOG_PATH') %}
+{% set _playbook_run_user = lookup('env', 'USER') %}
 
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -202,7 +203,7 @@ p {
           </tr>
           <tr>
             <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">RUN BY USER:</td>
-            <td style="width: 70%; align: right; font-size: 14px; padding: 25px 0 0 0;">{{ ansible_user }}</td>
+            <td style="width: 70%; align: right; font-size: 14px; padding: 25px 0 0 0;">{{ _playbook_run_user }}</td>
           </tr>
           <tr>
             <td style="width: 30%; align: left; font-size: 14px; padding: 25px 0 0 0;">Remove old CV/CCV versions:</td>
