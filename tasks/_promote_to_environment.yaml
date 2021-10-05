@@ -148,7 +148,7 @@
         body:
           id: "{{ _content_view_version_last.json.id }}"
           description: "{{ _publish_description }}"
-          environment_id: "{{ _satcb_env_id }}"
+          environment_ids: [ "{{ _satcb_env_id }}" ]
         body_format: json
         status_code: 202
         user: "{{ satcb_user }}"
