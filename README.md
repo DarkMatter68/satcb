@@ -25,7 +25,7 @@ However, I have since modified the playbook to incorporate the role as it became
 
 **NOTE**:
 
-> In the future it is my intention to replace this playbook with a Ansible module.
+> In the future it is my intention to restructure this into a more friendly version using roles (and maybe eventually to re-create it as a module).
 
  
 
@@ -84,7 +84,7 @@ export ANSIBLE_LOG_PATH=~/code/ansible/log/ansible_$(date +%Y%m%d-%H%M%S.%N).log
 
 ```
 
-Notice the use of "%N" in the date command. This will create a date string using *nano* second precission. This will prevent the same logfile from being used if the playbook is executed at the same time more than once.
+Notice the use of "%N" in the date command. This will create a date string using *nano* second precission. This will prevent the same logfile from being used if the playbook is executed at the 'same time' more than once.
 
  
 
@@ -362,7 +362,8 @@ ansible-playbook ./satcb/tasks/main.yaml                              \
        'test' and not to:  'uat' or 'prod'.
 
 
-- Replace this playbook by creating an Ansible module .
+- Re-structure with roles.
+- Replace this playbook by creating an Ansible module.
 - Only publish a new CV (or CCV) if there has been a change
   (I expect this to be a non-trivial and time-consuming task).
   
